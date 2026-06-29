@@ -1,15 +1,13 @@
 """orchestrador root entry point.
 
-This script is a tiny CLI dispatcher for the orchestrador monorepo.
+A small CLI for the orchestrador project:
 
-It lets you, from the repository root, do things like:
-
-    python main.py list                      # show all subprojects
-    python main.py run langgraph-backend-studio test
-    python main.py run langgraph-backend-studio docker-up
-
-Each subproject is expected to ship a `Makefile` whose targets you can invoke
-through the dispatcher. Add new subprojects by extending SUBPROJECTS below.
+    python main.py info                              # show project info
+    python main.py test                              # run the test suite
+    python main.py docker-up                         # start dev dependencies
+    python main.py docker-down                       # stop dev dependencies
+    python main.py run examples/hello_graph.py       # run any script in the repo
+    python main.py shell                             # open a shell at repo root
 """
 from __future__ import annotations
 
@@ -17,128 +15,92 @@ import argparse
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parent
 
 
-@dataclass(frozen=True)
-class Subproject:
-    """A self-contained subproject inside this monorepo."""
-
-    name: str
-    path: Path
-    description: str
-
-    @property
-    def exists(self) -> bool:
-        return self.path.is_dir()
-
-    @property
-    def has_makefile(self) -> bool:
-        return (self.path / "Makefile").is_file()
-
-
-SUBPROJECTS: tuple[Subproject, ...] = (
-    Subproject(
-        name="langgraph-backend-studio",
-        path=REPO_ROOT / "langgraph-backend-studio",
-        description=(
-            "LangGraph backend engineer workshop — state machines, "
-            "tools, human-in-the-loop, multi-agent, observability, deployment."
-        ),
-    ),
-)
-
-
-def cmd_list(_: argparse.Namespace) -> int:
-    """Pretty-print every registered subproject."""
-    if not SUBPROJECTS:
-        print("No subprojects registered.")
-        return 0
-
-    name_w = max(len(s.name) for s in SUBPROJECTS)
-    status_w = max(len("ok"), len("missing"), len("no-makefile"))
-    print(f"{'name'.ljust(name_w)}  {'status'.ljust(status_w)}  description")
-    print(f"{'-' * name_w}  {'-' * status_w}  {'-' * 40}")
-    for s in SUBPROJECTS:
-        if not s.exists:
-            status = "missing"
-        elif not s.has_makefile:
-            status = "no-makefile"
-        else:
-            status = "ok"
-        print(f"{s.name.ljust(name_w)}  {status.ljust(status_w)}  {s.description}")
+def cmd_info(_: argparse.Namespace) -> int:
+    """Print basic info about the project."""
+    print(f"orchestrador — root: {REPO_ROOT}")
+    print(f"  python : {sys.version.split()[0]}")
+    if make := shutil.which("make"):
+        print(f"  make   : {make}")
+    if docker := shutil.which("docker"):
+        print(f"  docker : {docker}")
     return 0
 
 
+def cmd_test(_: argparse.Namespace) -> int:
+    """Run pytest at the repo root."""
+    return _run([sys.executable, "-m", "pytest", "tests/", "-v"])
+
+
+def cmd_docker_up(_: argparse.Namespace) -> int:
+    return _run(["docker", "compose", "up", "-d"])
+
+
+def cmd_docker_down(_: argparse.Namespace) -> int:
+    return _run(["docker", "compose", "down"])
+
+
+def cmd_make(args: argparse.Namespace) -> int:
+    """Run a Makefile target."""
+    return _run(["make", *args.target])
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    """Run a Make target inside a named subproject."""
-    target = args.subproject
-    sub = next((s for s in SUBPROJECTS if s.name == target), None)
-    if sub is None:
-        print(f"❌ Unknown subproject: {target}", file=sys.stderr)
-        print("   Available:", ", ".join(s.name for s in SUBPROJECTS), file=sys.stderr)
+    """Run a Python script inside the repo."""
+    script = Path(args.script)
+    if not script.is_absolute():
+        script = REPO_ROOT / script
+    if not script.exists():
+        print(f"❌ Script not found: {script}", file=sys.stderr)
         return 2
-    if not sub.exists:
-        print(f"❌ Subproject directory missing: {sub.path}", file=sys.stderr)
-        return 2
-    if not sub.has_makefile:
-        print(f"❌ Subproject has no Makefile: {sub.path}", file=sys.stderr)
-        return 2
-
-    make = shutil.which("make")
-    if make is None:
-        print("❌ `make` not found in PATH. Install Xcode CLT or use `python main.py shell ...`.", file=sys.stderr)
-        return 2
-
-    cmd = [make, *args.target]
-    print(f"▶ {' '.join(cmd)}   (cwd={sub.path.relative_to(REPO_ROOT)})")
-    return subprocess.call(cmd, cwd=sub.path)
+    return _run([sys.executable, str(script), *args.args])
 
 
 def cmd_shell(args: argparse.Namespace) -> int:
-    """Open an interactive shell inside a subproject directory."""
-    target = args.subproject
-    sub = next((s for s in SUBPROJECTS if s.name == target), None)
-    if sub is None:
-        print(f"❌ Unknown subproject: {target}", file=sys.stderr)
-        return 2
-    if not sub.exists:
-        print(f"❌ Subproject directory missing: {sub.path}", file=sys.stderr)
-        return 2
-
+    """Open an interactive shell at the repo root."""
     shell = shutil.which(args.shell) or shutil.which("bash") or shutil.which("sh")
     if shell is None:
         print("❌ No usable shell found.", file=sys.stderr)
         return 2
+    print(f"▶ {shell}   (cwd={REPO_ROOT})")
+    return subprocess.call([shell], cwd=REPO_ROOT)
 
-    print(f"▶ {shell}   (cwd={sub.path.relative_to(REPO_ROOT)})")
-    return subprocess.call([shell], cwd=sub.path)
+
+def _run(cmd: list[str]) -> int:
+    """Run a subprocess at the repo root, printing what we're doing."""
+    pretty = " ".join(str(c) for c in cmd)
+    print(f"▶ {pretty}   (cwd={REPO_ROOT})")
+    return subprocess.call(cmd, cwd=REPO_ROOT)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="orchestrador",
-        description="orchestrador monorepo root CLI.",
+        description="orchestrador root CLI.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("list", help="list all registered subprojects").set_defaults(func=cmd_list)
+    sub.add_parser("info", help="show project info").set_defaults(func=cmd_info)
 
-    p_run = sub.add_parser("run", help="run `make <target>` inside a subproject")
-    p_run.add_argument("subproject", help="subproject name (see `list`)")
-    p_run.add_argument(
-        "target",
-        nargs=argparse.REMAINDER,
-        help="make target and args, e.g. `test`, `docker-up`",
-    )
+    p_make = sub.add_parser("make", help="run `make <target>` at the repo root")
+    p_make.add_argument("target", nargs=argparse.REMAINDER, help="make target(s)")
+    p_make.set_defaults(func=cmd_make)
+
+    sub.add_parser("test", help="run pytest tests/").set_defaults(func=cmd_test)
+    sub.add_parser("docker-up", help="docker compose up -d").set_defaults(func=cmd_docker_up)
+    sub.add_parser("docker-down", help="docker compose down").set_defaults(func=cmd_docker_down)
+
+    p_run = sub.add_parser("run", help="run a Python script in the repo")
+    p_run.add_argument("script", help="path to a .py file (relative to repo root)")
+    p_run.add_argument("args", nargs=argparse.REMAINDER, help="args passed to the script")
     p_run.set_defaults(func=cmd_run)
 
-    p_shell = sub.add_parser("shell", help="open a shell inside a subproject directory")
-    p_shell.add_argument("subproject", help="subproject name (see `list`)")
+    p_shell = sub.add_parser("shell", help="open a shell at the repo root")
     p_shell.add_argument("--shell", default="bash", help="shell to launch (default: bash)")
     p_shell.set_defaults(func=cmd_shell)
 
