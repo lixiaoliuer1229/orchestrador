@@ -1,0 +1,52 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== Virtual Env =====
+.venv/
+venv/
+env/
+
+# ===== Env & Secrets =====
+.env
+.env.local
+.env.*.local
+
+# ===== Data / Storage =====
+data/
+*.db
+*.sqlite
+*.sqlite3
+chroma_data/
+checkpoints/
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+profile_default/
+
+# ===== Build =====
+dist/
+build/
+*.egg
+# ===== Claude Code =====
+.claude/settings.local.json
