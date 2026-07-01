@@ -21,6 +21,8 @@ env/
 .env
 .env.local
 .env.*.local
+# allowlist the template only (in case a wider pattern like *.env is ever added)
+!.env.example
 
 # ===== Data / Storage =====
 data/

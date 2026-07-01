@@ -2,14 +2,14 @@
 from langgraph.graph import END, StateGraph
 
 from src.graphs.state_schema import BaseAgentState
-from src.utils.llm import get_openai_llm
+from src.utils.llm import get_anthropic_llm
 from src.utils.logger import logger
 
 
 def call_llm(state: BaseAgentState) -> BaseAgentState:
     """Single LLM node — echoes the latest user message with a friendly reply."""
     messages = state.get("messages", [])
-    llm = get_openai_llm()
+    llm = get_anthropic_llm()
     response = llm.invoke(messages)
     logger.info("hello_graph produced a response")
     return {

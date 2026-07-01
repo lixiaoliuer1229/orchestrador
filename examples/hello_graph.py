@@ -8,8 +8,8 @@ from src.utils.logger import setup_logging
 
 def main() -> None:
     setup_logging()
-    if not settings.openai_api_key:
-        print("⚠️  OPENAI_API_KEY not set — set it in .env first.")
+    if not settings.anthropic_api_key:
+        print("⚠️  ANTHROPIC_API_KEY not set — set it in .env first.")
         return
 
     state = {"messages": [HumanMessage(content="用一句话介绍你自己。")], "turn_count": 0}

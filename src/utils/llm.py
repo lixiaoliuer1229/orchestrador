@@ -31,6 +31,7 @@ def get_anthropic_llm(model: Optional[str] = None, temperature: float = 0.0):
         model=model or settings.anthropic_model,
         temperature=temperature,
         api_key=settings.anthropic_api_key,
+        base_url=settings.anthropic_base_url,
     )
 
 

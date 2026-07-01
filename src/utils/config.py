@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o-mini")
 
     anthropic_api_key: Optional[str] = Field(default=None)
+    anthropic_base_url: Optional[str] = Field(default=None)
     anthropic_model: str = Field(default="claude-sonnet-4-6")
 
     # ---- LangSmith ----
