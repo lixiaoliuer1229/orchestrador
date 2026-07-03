@@ -1,16 +1,9 @@
 """Run the smallest LangGraph end-to-end."""
 from langchain_core.messages import HumanMessage
 
-from src.graphs.hello_graph import hello_graph
-from src.utils.config import settings
-from src.utils.logger import setup_logging
-
+from src.graphs.hello_graph import hello_graph  # noqa: E402
 
 def main() -> None:
-    setup_logging()
-    if not settings.anthropic_api_key:
-        print("⚠️  ANTHROPIC_API_KEY not set — set it in .env first.")
-        return
 
     state = {"messages": [HumanMessage(content="用一句话介绍你自己。")], "turn_count": 0}
     result = hello_graph.invoke(state)
