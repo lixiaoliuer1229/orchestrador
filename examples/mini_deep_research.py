@@ -3,10 +3,11 @@ import os
 
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, SecretStr
 from langchain_tavily import TavilySearch
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 
 load_dotenv(override=True)
 
@@ -15,12 +16,14 @@ anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL")
 anthropic_model = os.getenv("ANTHROPIC_MODEL")
 
 
-if not anthropic_api_key:
-    raise ValueError("ANTHROPIC_API_KEY is not set. Add it to the project's .env file.")
+if not anthropic_api_key or not anthropic_model:
+    raise ValueError(
+        "ANTHROPIC_API_KEY and ANTHROPIC_MODEL must be set in the project's .env file."
+    )
 
 model = ChatAnthropic(
-    model=anthropic_model,
-    api_key=anthropic_api_key,
+    model_name=anthropic_model,
+    api_key=SecretStr(anthropic_api_key),
     base_url=anthropic_base_url or None,
 )
 
@@ -30,7 +33,7 @@ PLANNER_INSTRUCTIONS = (
 )
 
 planner_prompt = ChatPromptTemplate.from_messages([
-    ("system", PLANNER_INSTRUCTIONS),
+    ("system", PLANNER_INSTRUCTIONS + "\n\n{format_instructions}"),
     ("human",  "{query}")
 ])
 
@@ -48,7 +51,13 @@ class WebSearchPlan(BaseModel):
     "A list of web searches to perform to best answer the query"
     "为了尽可能全面回答该问题而需要执行的网页搜索列表"
 
-planner_chain = planner_prompt | model.with_structured_output(WebSearchPlan)
+planner_parser = PydanticOutputParser(pydantic_object=WebSearchPlan)
+
+planner_prompt = planner_prompt.partial(
+    format_instructions=planner_parser.get_format_instructions()
+)
+
+planner_chain = planner_prompt | model | planner_parser
 
 planner_result = planner_chain.invoke({'query': '请问你对AI+教育有何看法'})
 
@@ -60,14 +69,26 @@ SEARCH_INSTRUCTIONS = (
     "essence and ignore any fluff. Do not include any additional commentary other than the summary itself."
 )
 
-
 search_tool = TavilySearch(max_results=5, topic="general")
 
-search_agent = create_react_agent(
+search_agent = create_agent(
     model,
-    prompt=SEARCH_INSTRUCTIONS,
-    tools=[search_tool]
+    tools=[search_tool],
+    system_prompt=SEARCH_INSTRUCTIONS,
 )
+
+search_agent_res = search_agent.invoke({'messages': [{'role': 'user', "content": planner_result.searches[0].query}]})
+
+
+class ReportData(BaseModel):
+    """The structured result returned by the report-writing chain."""
+
+    short_summary: str = Field(description="A brief summary of the report in Markdown format.")
+    markdown_report: str = Field(description="The complete research report in Markdown format.")
+    follow_up_questions: list[str] = Field(
+        description="Suggested topics or questions for further research."
+    )
+
 
 WRITER_PROMPT = (
     "You are a senior researcher tasked with writing a cohesive report for a research query."
@@ -78,9 +99,18 @@ WRITER_PROMPT = (
 )
 
 writer_prompt = ChatPromptTemplate.from_messages([
-    ('system', WRITER_PROMPT),
+    ('system', WRITER_PROMPT + "\n\n{format_instructions}"),
     ('human', '{query}')
 ])
+
+writer_parser = PydanticOutputParser(pydantic_object=ReportData)
+writer_prompt = writer_prompt.partial(
+    format_instructions=writer_parser.get_format_instructions()
+)
+
+
+writer_chain = writer_prompt | model | writer_parser
+
 
 # 生成关键词规划
 def plan_searches(query: str) -> WebSearchPlan:
@@ -131,3 +161,6 @@ def deepresearch(query: str) -> ReportData:
     search_results = perform_searches(search_plan)
     report = write_report(query, search_results)
     print(report.markdown_report)
+
+
+deepresearch('AI在教育方面的应用场景')
