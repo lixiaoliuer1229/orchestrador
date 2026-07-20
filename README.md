@@ -57,6 +57,9 @@ docker compose up -d
 python main.py run examples/hello_graph.py
 # 或直接：
 python examples/hello_graph.py
+
+# 运行 mini DeepResearch 示例（需要配置 Anthropic 和 Tavily 环境变量）
+python -m examples.mini_deep_research
 ```
 
 ### 5. 仓库根 CLI（main.py）
