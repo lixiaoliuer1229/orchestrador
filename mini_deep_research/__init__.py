@@ -7,18 +7,18 @@ service.  Call :func:`get_research_components` when a workflow is executed.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_tavily import TavilySearch
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
+
+from .config import get_settings
 
 
 class WebSearchItem(BaseModel):
@@ -118,18 +118,12 @@ class ResearchComponents:
 def _create_model() -> ChatAnthropic:
     """Create the configured Anthropic-compatible chat model."""
 
-    load_dotenv(override=True)
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    model_name = os.getenv("ANTHROPIC_MODEL")
-    if not api_key or not model_name:
-        raise ValueError(
-            "ANTHROPIC_API_KEY and ANTHROPIC_MODEL must be set in the project's .env file."
-        )
+    settings = get_settings()
 
     return ChatAnthropic(
-        model_name=model_name,
-        api_key=SecretStr(api_key),
-        base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
+        model_name=settings.anthropic_model,
+        api_key=settings.anthropic_api_key,
+        base_url=settings.anthropic_base_url or None,
     )
 
 
@@ -137,6 +131,8 @@ def _create_model() -> ChatAnthropic:
 def get_research_components() -> ResearchComponents:
     """Build and cache the shared planner, search agent, and writer chain."""
 
+    # Load and validate all production configuration before creating clients.
+    get_settings()
     model = _create_model()
 
     planner_prompt = ChatPromptTemplate.from_messages([

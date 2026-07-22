@@ -16,9 +16,9 @@ if __package__:
         parse_search_plan,
     )
 else:
-    # Support `python examples/mini_deep_research/mini_deep_research.py`.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from examples.mini_deep_research import (  # noqa: E402
+    # Support `python mini_deep_research/mini_deep_research.py`.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from mini_deep_research import (  # noqa: E402
         ReportData,
         ResearchComponents,
         WebSearchItem,

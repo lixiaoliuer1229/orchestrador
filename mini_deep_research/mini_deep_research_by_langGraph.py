@@ -10,8 +10,8 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 if __package__:
     from . import ReportData, WebSearchPlan, get_research_components, parse_search_plan
 else:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from examples.mini_deep_research import (  # noqa: E402
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from mini_deep_research import (  # noqa: E402
         ReportData,
         WebSearchPlan,
         get_research_components,
