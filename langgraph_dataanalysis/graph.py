@@ -175,8 +175,11 @@ def fig_inter(py_code: str, fname: str) -> str:
 
     local_vars = {"plt": plt, "pd": pd, "sns": sns}
 
-    # 设置图像保存路径（这里一定要设置为前端agent chat ui文件夹中的public目录下）
-    base_dir = r"D:\Learning\Learning\大模型\LangChain\Python\langgraph_dataanalysis\agent-chat-ui-main\public\\"
+    # 优先使用前端静态资源目录；未配置时保存到当前模块的 public 目录。
+    base_dir = os.getenv("PUBLIC_DIR") or os.path.join(
+        os.path.dirname(__file__),
+        "public",
+    )
     images_dir = os.path.join(base_dir, "images")
     os.makedirs(images_dir, exist_ok=True)  # 自动创建 images 文件夹（如不存在）
 
@@ -189,8 +192,8 @@ def fig_inter(py_code: str, fname: str) -> str:
         if fig:
             image_filename = f"{fname}.png"
             abs_path = os.path.join(images_dir, image_filename)  # 绝对路径
-            rel_path = os.path.join("images", image_filename)  # 返回相对路径（给前端用）
-
+            # URL 路径固定使用 "/"，避免 Windows 返回反斜杠。
+            rel_path = f"/images/{image_filename}"
             fig.savefig(abs_path, bbox_inches='tight')
             return f"图片已保存，路径为: {rel_path}"
         else:
