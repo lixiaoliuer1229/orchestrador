@@ -257,4 +257,4 @@ model = ChatAnthropic(
 )
 
 # 创建图 （Agent）
-graph = create_agent(model=model, tools=tools, prompt=prompt)
+graph = create_agent(model=model, tools=tools, system_prompt=prompt)
