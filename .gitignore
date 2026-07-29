@@ -55,3 +55,6 @@ build/
 
 # ===== LangGraph Local Runtime =====
 .langgraph_api/
+
+# ===== Generated Analysis Images =====
+langgraph_dataanalysis/public/images/

@@ -1,4 +1,7 @@
 import os
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_agent
@@ -30,6 +33,42 @@ mysql_pw = os.getenv('MYSQL_PW')
 db = os.getenv('DB_NAME')
 port = os.getenv('PORT')
 
+
+def create_mysql_connection():
+    """创建 MySQL 连接；本机开发连接默认不启用 TLS。"""
+    is_local_mysql = host in {"127.0.0.1", "localhost", "::1"}
+    ssl_disabled = os.getenv(
+        "MYSQL_SSL_DISABLED",
+        "true" if is_local_mysql else "false",
+    ).lower() in {"1", "true", "yes", "on"}
+
+    return pymysql.connect(
+        host=host,
+        user=user,
+        password=mysql_pw,
+        database=db,
+        port=int(port),
+        charset="utf8mb4",
+        ssl_disabled=ssl_disabled,
+    )
+
+
+def mysql_json_default(value):
+    """把常见 MySQL 返回类型转换成可安全写入 JSON 的值。"""
+    if isinstance(value, Decimal):
+        # 使用字符串避免金额、小数等高精度字段发生精度损失。
+        return str(value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return str(value)
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    raise TypeError(
+        f"Object of type {value.__class__.__name__} is not JSON serializable"
+    )
+
+
 # 定义结构化参数模型
 class SQLQuerySchema(BaseModel):
     sql_query: str = Field(description=description)
@@ -50,14 +89,7 @@ def sql_inter(sql_query: str) -> str:
 
 
     # 创建连接
-    connection = pymysql.connect(
-        host=host,
-        user=user,
-        passwd=mysql_pw,
-        db=db,
-        port=int(port),
-        charset='utf8'
-    )
+    connection = create_mysql_connection()
 
     try:
         with connection.cursor() as cursor:
@@ -68,7 +100,11 @@ def sql_inter(sql_query: str) -> str:
         connection.close()
 
     # 将结果以 JSON 字符串形式返回
-    return json.dumps(results, ensure_ascii=False)
+    return json.dumps(
+        results,
+        ensure_ascii=False,
+        default=mysql_json_default,
+    )
 
 # 创建数据提取工具
 # 定义结构化参数
@@ -91,14 +127,7 @@ def extract_data(sql_query: str, df_name: str) -> str:
     print("正在调用 extract_data 工具运行 SQL 查询...")
 
     # 创建数据库连接
-    connection = pymysql.connect(
-        host=host,
-        user=user,
-        passwd=mysql_pw,
-        db=db,
-        port=int(port),
-        charset='utf8'
-    )
+    connection = create_mysql_connection()
 
     try:
         # 执行 SQL 并保存为全局变量
@@ -181,7 +210,7 @@ def fig_inter(py_code: str, fname: str) -> str:
         "public",
     )
     images_dir = os.path.join(base_dir, "images")
-    os.makedirs(images_dir, exist_ok=True)  # 自动创建 images 文件夹（如不存在）
+    os.makedirs(images_dir, exist_ok=True)
 
     try:
         g = globals()
@@ -191,11 +220,10 @@ def fig_inter(py_code: str, fname: str) -> str:
         fig = local_vars.get(fname, None)
         if fig:
             image_filename = f"{fname}.png"
-            abs_path = os.path.join(images_dir, image_filename)  # 绝对路径
-            # URL 路径固定使用 "/"，避免 Windows 返回反斜杠。
+            abs_path = os.path.join(images_dir, image_filename)
             rel_path = f"/images/{image_filename}"
-            fig.savefig(abs_path, bbox_inches='tight')
-            return f"图片已保存，路径为: {rel_path}"
+            fig.savefig(abs_path, format="png", bbox_inches="tight")
+            return f"图片已保存，访问路径为: {rel_path}"
         else:
             return "图像对象未找到，请确认变量名正确并为 matplotlib 图对象。"
     except Exception as e:
@@ -226,7 +254,7 @@ prompt = """
    - 你可以直接读取数据并进行绘图，不需要借助`python_inter`工具读取图片。
    - 你应根据用户需求编写绘图代码，并正确指定绘图对象变量名（如 `fig`）。
    - 当你生成Python绘图代码时必须指明图像的名称，如fig = plt.figure()或fig = plt.subplots()创建图像对象，并赋值为fig。
-   - 不要调用plt.show()，否则图像将无法保存。
+   - 不要调用plt.show()，否则图片将无法正确保存。
 
 **工具使用优先级：**
 - 如需数据库数据，请先使用`sql_inter`或`extract_data`获取，再执行Python分析或绘图。
@@ -236,8 +264,8 @@ prompt = """
 - 所有回答均使用**简体中文**，清晰、礼貌、简洁。
 - 如果调用工具返回结构化JSON数据，你应提取其中的关键信息简要说明，并展示主要结果。
 - 若需要用户提供更多信息，请主动提出明确的问题。
-- 如果有生成的图片文件，请务必在回答中使用Markdown格式插入图片，如：![Categorical Features vs Churn](images/fig.png)
-- 不要仅输出图片路径文字。
+- 如果生成了图片，请使用`fig_inter`返回的访问路径，以Markdown图片格式展示，例如：`![分析图表](/images/fig.png)`。
+- 不要编造不存在的图片路径。
 
 **风格：**
 - 专业、简洁、以数据驱动。
