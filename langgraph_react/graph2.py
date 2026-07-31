@@ -17,6 +17,12 @@ import os
 # 加载环境变量
 load_dotenv(override=True)
 
+model = ChatAnthropic(
+        model_name=os.getenv('ANTHROPIC_MODEL'),
+        api_key=os.getenv('ANTHROPIC_API_KEY'),
+        base_url=os.getenv('ANTHROPIC_BASE_URL') or None,
+    )
+
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
@@ -45,13 +51,6 @@ def get_weather(loc):
     response = requests.get(url, params=params)
     temperature = response.json()
     return temperature['results'][0]['now']
-
-
-model = ChatAnthropic(
-        model_name=os.getenv('ANTHROPIC_MODEL'),
-        api_key=os.getenv('ANTHROPIC_API_KEY'),
-        base_url=os.getenv('ANTHROPIC_BASE_URL') or None,
-    )
 
 tools = [get_weather]
 model = model.bind_tools(tools)
