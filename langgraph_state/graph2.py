@@ -8,20 +8,13 @@ class MyState(BaseModel):
     x: int
     result: Optional[str] = None
 
-
 # 构建图
 builder = StateGraph(MyState)
-
 
 # 定义各节点处理逻辑（接受 MyState，返回 MyState）
 def check_x(state: MyState) -> MyState:
     print(f"[check_x] Received state: {state}")
     return state
-
-
-def is_even(state: MyState) -> bool:
-    return state.x % 2 == 0
-
 
 def handle_even(state: MyState) -> MyState:
     print("[handle_even] x 是偶数")
