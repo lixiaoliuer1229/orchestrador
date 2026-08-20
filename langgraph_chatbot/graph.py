@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 import requests, json
 
 # 加载环境变量
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 
 class WeatherQuery(BaseModel):

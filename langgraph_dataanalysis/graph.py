@@ -15,7 +15,7 @@ import pandas as pd
 import pymysql
 
 # 加载环境变量
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 
 # 创建SQL查询工具
@@ -26,12 +26,11 @@ description = """
 本函数只负责运行SQL代码并进行数据查询，若要进行数据提取，则使用另一个extract_data函数。
 """
 
-load_dotenv(override=True)
-host = os.getenv('HOST')
-user = os.getenv('USER')
-mysql_pw = os.getenv('MYSQL_PW')
-db = os.getenv('DB_NAME')
-port = os.getenv('PORT')
+host = os.getenv("MYSQL_HOST") or os.getenv("HOST")
+user = os.getenv("MYSQL_USER") or os.getenv("USER")
+mysql_pw = os.getenv("MYSQL_PASSWORD") or os.getenv("MYSQL_PW")
+db = os.getenv("MYSQL_DATABASE") or os.getenv("DB_NAME")
+port = os.getenv("MYSQL_PORT") or os.getenv("PORT") or "3306"
 
 
 def create_mysql_connection():

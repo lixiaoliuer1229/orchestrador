@@ -1,0 +1,29 @@
+services:
+  orchestrador:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: orchestrador:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Bind to loopback; publish through an authenticated HTTPS reverse proxy.
+      - "127.0.0.1:${APP_PORT:-8123}:8000"
+    volumes:
+      - orchestrador_public:/app/public
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+volumes:
+  orchestrador_public:
