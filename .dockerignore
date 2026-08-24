@@ -17,9 +17,10 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
+tests
 
 .langgraph_api
-langgraph_dataanalysis/public/images
+bak/langgraph_dataanalysis/public/images
 data
 *.db
 *.sqlite*

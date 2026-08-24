@@ -57,4 +57,4 @@ build/
 .langgraph_api/
 
 # ===== Generated Analysis Images =====
-langgraph_dataanalysis/public/images/
+bak/langgraph_dataanalysis/public/images/

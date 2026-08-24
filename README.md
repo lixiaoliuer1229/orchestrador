@@ -1,16 +1,64 @@
-# Mini DeepResearch
+# Orchestrador
 
-基于 LangChain、LangGraph、Anthropic 和 Tavily 的轻量级研究工作流。
+基于 FastAPI、LangChain 和 LangGraph 的统一 Agent API 服务。
+
+## API 入口
+
+统一 Python 入口为：
+
+```text
+app.main:app
+```
+
+本地启动：
+
+```bash
+python -m uvicorn app.main:app \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --workers 1
+```
+
+主要接口：
+
+- `GET /ok`：容器健康检查。
+- `GET /health`：服务和 Graph 注册状态。
+- `GET /graphs`：已注册 Graph 列表。
+- `POST /graphs/{graph_name}/invoke`：调用指定 Graph。
+- `GET /docs`：OpenAPI 文档。
+- `GET /images/{filename}`：数据分析生成的图片。
+
+调用示例：
+
+```bash
+curl -X POST http://127.0.0.1:8000/graphs/chatbot/invoke \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "input": {
+      "messages": [
+        {"role": "user", "content": "你好"}
+      ]
+    },
+    "config": {
+      "configurable": {"thread_id": "demo-1"}
+    }
+  }'
+```
+
+生产容器使用单 worker Uvicorn，并由 Docker Compose 负责健康检查和异常重启。
 
 ## 目录结构
 
 ```text
-mini_deep_research/
+app/
+├── __init__.py                         # Python 应用包
+└── main.py                             # FastAPI 统一入口
+
+bak/mini_deep_research/
 ├── __init__.py                         # 公共模型、提示词和组件
 ├── config.py                           # 正式环境配置校验
 ├── mini_deep_research.py               # Pipeline 实现
 ├── mini_deep_research_by_langGraph.py  # LangGraph 实现
-└── __main__.py                         # 默认运行入口
 ```
 
 ## 安装
@@ -43,11 +91,11 @@ cp .env.example .env
 ## 运行 LangGraph 版本
 
 ```bash
-python -m mini_deep_research
+python -m bak.mini_deep_research.mini_deep_research_by_langGraph
 ```
 
 ## 运行 Pipeline 版本
 
 ```bash
-python -m mini_deep_research.mini_deep_research
+python -m bak.mini_deep_research.mini_deep_research
 ```

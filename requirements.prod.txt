@@ -1,6 +1,6 @@
-# Production dependencies for the graphs declared in the root langgraph.json.
+# Production dependencies for app.main:app and its registered graphs.
 # Versions mirror the verified local "orchestrador" virtual environment.
-langgraph-cli[inmem]==0.4.31
+fastapi==0.138.2
 langgraph==1.2.7
 langchain==1.3.11
 langchain-core==1.4.8
@@ -12,3 +12,4 @@ python-dotenv==1.2.2
 PyMySQL==1.2.0
 requests==2.34.2
 seaborn==0.13.2
+uvicorn[standard]==0.49.0
