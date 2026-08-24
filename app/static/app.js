@@ -24,7 +24,18 @@ const elements = {
   elapsed: document.getElementById("elapsed-time"),
   imageSection: document.getElementById("image-section"),
   gallery: document.getElementById("image-gallery"),
+  currentUser: document.getElementById("current-user"),
+  adminLink: document.getElementById("admin-link"),
+  logout: document.getElementById("logout"),
 };
+
+async function loadIdentity() {
+  const response = await fetch("/auth/me");
+  if (response.status === 401) return window.location.replace("/login");
+  const user = await response.json();
+  elements.currentUser.textContent = user.username;
+  elements.adminLink.hidden = user.role !== "admin";
+}
 
 function createThreadId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -160,4 +171,9 @@ elements.newThread.addEventListener("click", () => {
   elements.threadId.value = createThreadId();
 });
 elements.form.addEventListener("submit", invoke);
+elements.logout.addEventListener("click", async () => {
+  await fetch("/auth/logout", {method: "POST"});
+  window.location.replace("/login");
+});
+loadIdentity();
 loadRuntime();

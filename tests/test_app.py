@@ -1,3 +1,7 @@
+import os
+
+os.environ["AUTH_ENABLED"] = "false"
+
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
