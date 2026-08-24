@@ -5,16 +5,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app.model_config import SUPPORTED_MODELS, configured_model
+from bak.langgraph_chatbot.graph import create_graph as create_chatbot_graph
 from bak.langgraph_chatbot.graph import graph as chatbot_graph
+from bak.langgraph_dataanalysis.graph import create_graph as create_data_agent_graph
 from bak.langgraph_dataanalysis.graph import graph as data_agent_graph
 
 
@@ -24,6 +28,15 @@ GRAPHS = {
     "chatbot": chatbot_graph,
     "data_agent": data_agent_graph,
 }
+GRAPH_FACTORIES = {
+    "chatbot": create_chatbot_graph,
+    "data_agent": create_data_agent_graph,
+}
+
+
+@lru_cache(maxsize=len(SUPPORTED_MODELS) * len(GRAPH_FACTORIES))
+def _configured_graph(graph_name: str, model: str):
+    return GRAPH_FACTORIES[graph_name](model)
 
 
 class GraphInvokeRequest(BaseModel):
@@ -31,6 +44,7 @@ class GraphInvokeRequest(BaseModel):
 
     input: dict[str, Any]
     config: dict[str, Any] = Field(default_factory=dict)
+    model: str | None = None
 
 
 def _request_timeout_seconds() -> float:
@@ -52,20 +66,18 @@ app = FastAPI(
     description="Unified API for the configured LangGraph agents.",
 )
 
+static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 public_dir = Path(os.getenv("PUBLIC_DIR") or "public")
 images_dir = public_dir / "images"
 images_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=images_dir), name="images")
 
 
-@app.get("/", include_in_schema=False)
-async def root() -> dict[str, Any]:
-    return {
-        "service": "orchestrador",
-        "status": "ok",
-        "docs": "/docs",
-        "graphs": sorted(GRAPHS),
-    }
+@app.get("/", include_in_schema=False, response_class=FileResponse)
+async def root() -> FileResponse:
+    return FileResponse(static_dir / "index.html")
 
 
 @app.get("/ok", tags=["health"])
@@ -86,14 +98,37 @@ async def list_graphs() -> dict[str, list[str]]:
     return {"graphs": sorted(GRAPHS)}
 
 
+@app.get("/runtime", tags=["runtime"])
+async def runtime() -> dict[str, Any]:
+    return {
+        "service": "orchestrador",
+        "model": configured_model(),
+        "models": list(SUPPORTED_MODELS),
+        "model_endpoint": (
+            "custom" if os.getenv("ANTHROPIC_BASE_URL") else "anthropic-official"
+        ),
+        "graphs": sorted(GRAPHS),
+        "request_timeout_seconds": _request_timeout_seconds(),
+    }
+
+
 @app.post("/graphs/{graph_name}/invoke", tags=["graphs"])
 async def invoke_graph(
     graph_name: str,
     request: GraphInvokeRequest,
 ) -> JSONResponse:
-    graph = GRAPHS.get(graph_name)
-    if graph is None:
+    if graph_name not in GRAPHS:
         raise HTTPException(status_code=404, detail="Unknown graph")
+
+    model = request.model or configured_model()
+    if model not in SUPPORTED_MODELS:
+        raise HTTPException(status_code=422, detail="Unsupported model")
+
+    graph = (
+        _configured_graph(graph_name, model)
+        if graph_name in GRAPH_FACTORIES
+        else GRAPHS[graph_name]
+    )
 
     try:
         async with asyncio.timeout(_request_timeout_seconds()):
@@ -105,4 +140,3 @@ async def invoke_graph(
         raise HTTPException(status_code=500, detail="Graph invocation failed") from exc
 
     return JSONResponse(content=jsonable_encoder(result))
-

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orchestrador 控制台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ORCHESTRADOR</p>
+        <h1>数据与智能体控制台</h1>
+        <p class="subtitle">统一查看运行状态、调用 Graph，并浏览分析结果。</p>
+      </div>
+      <div id="service-status" class="status status-loading" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>正在检查服务</span>
+      </div>
+    </header>
+
+    <section class="overview" aria-label="运行概览">
+      <article class="metric">
+        <span class="metric-label">当前模型</span>
+        <strong id="model-name">读取中</strong>
+        <span id="model-endpoint" class="metric-meta">—</span>
+      </article>
+      <article class="metric">
+        <span class="metric-label">可用 Graph</span>
+        <strong id="graph-count">—</strong>
+        <span id="graph-names" class="metric-meta">—</span>
+      </article>
+      <article class="metric">
+        <span class="metric-label">请求超时</span>
+        <strong id="request-timeout">—</strong>
+        <span class="metric-meta">单次调用上限</span>
+      </article>
+    </section>
+
+    <section class="workspace">
+      <form id="invoke-form" class="composer">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">GRAPH INVOKE</p>
+            <h2>发起分析</h2>
+          </div>
+          <a href="/docs" target="_blank" rel="noreferrer">API 文档</a>
+        </div>
+
+        <label for="graph-select">智能体</label>
+        <select id="graph-select" name="graph" required></select>
+
+        <label for="model-select">基座模型</label>
+        <select id="model-select" name="model" required></select>
+
+        <label for="thread-id">Thread ID</label>
+        <div class="thread-row">
+          <input id="thread-id" name="thread" autocomplete="off" required>
+          <button id="new-thread" type="button" class="secondary">新建</button>
+        </div>
+
+        <label for="prompt">问题或分析要求</label>
+        <textarea id="prompt" name="prompt" rows="8" required placeholder="例如：查询最近一周的数据并总结主要变化"></textarea>
+
+        <button id="submit-button" type="submit" class="primary">开始运行</button>
+        <p id="form-error" class="error" role="alert"></p>
+      </form>
+
+      <section class="result" aria-labelledby="result-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">RESULT</p>
+            <h2 id="result-title">运行结果</h2>
+          </div>
+          <span id="elapsed-time" class="elapsed">等待调用</span>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <p>选择智能体并提交问题后，回答、图表和原始数据会显示在这里。</p>
+        </div>
+
+        <div id="result-content" class="result-content" hidden aria-live="polite">
+          <article class="answer-block">
+            <h3>智能体回答</h3>
+            <div id="answer-text" class="answer-text"></div>
+          </article>
+
+          <section id="image-section" class="image-section" hidden>
+            <h3>生成图表</h3>
+            <div id="image-gallery" class="image-gallery"></div>
+          </section>
+
+          <details class="raw-data">
+            <summary>查看原始返回数据</summary>
+            <pre id="raw-json"></pre>
+          </details>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

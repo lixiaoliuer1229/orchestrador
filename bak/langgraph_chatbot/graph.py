@@ -1,10 +1,11 @@
 import os
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 import requests, json
+
+from app.model_config import create_chat_model
 
 # 加载环境变量
 load_dotenv(override=False)
@@ -37,11 +38,9 @@ def get_weather(loc):
 tools = [get_weather]
 
 # 创建模型
-model = ChatAnthropic(
-        model_name=os.getenv('ANTHROPIC_MODEL'),
-        api_key=os.getenv('ANTHROPIC_API_KEY'),
-        base_url=os.getenv('ANTHROPIC_BASE_URL') or None,
-    )
+def create_graph(model_name=None):
+    return create_agent(model=create_chat_model(model_name), tools=tools)
 
-# 创建图
-graph = create_agent(model=model, tools=tools)
+
+# 默认图用于 LangGraph CLI；FastAPI 会按请求模型缓存独立的图。
+graph = create_graph()

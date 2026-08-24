@@ -21,6 +21,8 @@ python -m uvicorn app.main:app \
 
 主要接口：
 
+- `GET /`：数据与智能体控制台，可查看运行状态并发起 Graph 调用。
+- `GET /runtime`：当前模型、端点类型、Graph 和超时配置。
 - `GET /ok`：容器健康检查。
 - `GET /health`：服务和 Graph 注册状态。
 - `GET /graphs`：已注册 Graph 列表。
@@ -77,6 +79,16 @@ pip install -r requirements.txt
 - `ANTHROPIC_API_KEY`
 - `ANTHROPIC_MODEL`
 - `ANTHROPIC_BASE_URL`（可选）
+
+项目通过 Norotech Gateway 支持按请求切换以下基座模型：
+
+- `coding-chat`（默认）
+- `strong-chat`
+- `cheap-chat`
+- `minimax-latest`
+
+调用 `POST /graphs/{graph_name}/invoke` 时可在 JSON 顶层传入 `model`；未传时使用
+`ANTHROPIC_MODEL`。服务只接受上述白名单，前端控制台也提供对应的模型选择框。
 - `TAVILY_API_KEY`
 
 本地开发可以使用 `.env`：

@@ -3,7 +3,6 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
@@ -13,6 +12,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import pymysql
+
+from app.model_config import create_chat_model
 
 # 加载环境变量
 load_dotenv(override=False)
@@ -277,11 +278,13 @@ prompt = """
 tools = [python_inter, fig_inter, sql_inter, extract_data]
 
 # 创建模型
-model = ChatAnthropic(
-        model_name=os.getenv('ANTHROPIC_MODEL'),
-        api_key=os.getenv('ANTHROPIC_API_KEY'),
-        base_url=os.getenv('ANTHROPIC_BASE_URL') or None,
-)
+def create_graph(model_name=None):
+    return create_agent(
+        model=create_chat_model(model_name),
+        tools=tools,
+        system_prompt=prompt,
+    )
 
-# 创建图 （Agent）
-graph = create_agent(model=model, tools=tools, system_prompt=prompt)
+
+# 默认图用于 LangGraph CLI；FastAPI 会按请求模型缓存独立的图。
+graph = create_graph()

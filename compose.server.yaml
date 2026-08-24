@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.postgres
+    volumes:
+      - orchestrador_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=30"]
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+  orchestrador:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: orchestrador:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PUBLIC_APP_PORT:-80}:8000"
+    volumes:
+      - orchestrador_public:/app/public
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+volumes:
+  orchestrador_public:
+  orchestrador_postgres:
