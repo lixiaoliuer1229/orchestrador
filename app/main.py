@@ -33,10 +33,10 @@ from app.auth import (
     set_user_active,
 )
 from app.model_config import SUPPORTED_MODELS, configured_model
-from bak.langgraph_chatbot.graph import create_graph as create_chatbot_graph
-from bak.langgraph_chatbot.graph import graph as chatbot_graph
-from bak.langgraph_dataanalysis.graph import create_graph as create_data_agent_graph
-from bak.langgraph_dataanalysis.graph import graph as data_agent_graph
+from app.graphs.chat import create_graph as create_chatbot_graph
+from app.graphs.chat import graph as chatbot_graph
+from app.graphs.data import create_graph as create_data_agent_graph
+from app.graphs.data import graph as data_agent_graph
 
 
 logger = logging.getLogger(__name__)

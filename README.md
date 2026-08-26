@@ -59,7 +59,7 @@ AI Berkshire 中值得吸收的是研究纪律和工作流，包括财务数据�
 5. 先运行回测和模拟盘，保留人工审批并完成每日成交、持仓与资金对账。
 6. 经数月稳定模拟、故障恢复和极端行情测试后，再评估小资金自动执行。
 
-当前仓库仍处于 Agent API 与研究能力的基础建设阶段。现有 `chatbot`、`data_agent` 和 `mini_deep_research` 是后续目标架构的原型组件，并不代表上述交易链路已经完成。
+当前仓库仍处于 Agent API 与研究能力的基础建设阶段。现有 `chatbot` 和 `data_agent` 是正式基础能力；联网研究、量化研究和交易链路将按上述架构逐步建设，目前尚未完成。
 
 ## API 入口
 
@@ -112,15 +112,19 @@ curl -X POST http://127.0.0.1:8000/graphs/chatbot/invoke \
 
 ```text
 app/
-├── __init__.py                         # Python 应用包
-└── main.py                             # FastAPI 统一入口
+├── main.py              # FastAPI 统一入口和 Graph 注册
+├── model_config.py      # 模型别名与客户端配置
+├── auth.py              # 认证与用户管理
+├── graphs/              # 正式 Agent / Graph
+│   ├── chat.py
+│   └── data.py
+└── tools/               # 权限受控、可独立测试的工具
+    └── sql.py
 
-bak/mini_deep_research/
-├── __init__.py                         # 公共模型、提示词和组件
-├── config.py                           # 正式环境配置校验
-├── mini_deep_research.py               # Pipeline 实现
-├── mini_deep_research_by_langGraph.py  # LangGraph 实现
+tests/                   # API、Graph 与安全回归测试
 ```
+
+`bak/` 仅保存历史练习和实验代码，不属于生产包。正式运行时代码、测试和文档不得依赖该目录；如需借鉴其中的实现，应在 `app/` 下重新设计并编写。
 
 ## 安装
 
@@ -150,6 +154,13 @@ pip install -r requirements.txt
 `ANTHROPIC_MODEL`。服务只接受上述白名单，前端控制台也提供对应的模型选择框。
 - `TAVILY_API_KEY`
 
+`data_agent` 只能执行单条只读 MySQL 查询。生产环境必须使用数据库只读账号，并可通过以下变量收紧服务端限制：
+
+- `DATA_AGENT_MAX_ROWS`：单次最多返回的记录数，默认 `500`，上限 `5000`。
+- `DATA_AGENT_QUERY_TIMEOUT_MS`：查询及连接超时，默认 `10000` 毫秒，上限 `60000` 毫秒。
+
+出于安全考虑，API 不向模型开放任意 Python、Shell 或绘图代码执行能力。
+
 本地开发可以使用 `.env`：
 
 ```bash
@@ -159,14 +170,8 @@ cp .env.example .env
 
 系统环境变量的优先级高于 `.env`，真实密钥不要提交到 Git。
 
-## 运行 LangGraph 版本
+## 测试
 
 ```bash
-python -m bak.mini_deep_research.mini_deep_research_by_langGraph
-```
-
-## 运行 Pipeline 版本
-
-```bash
-python -m bak.mini_deep_research.mini_deep_research
+python -m pytest -q
 ```
