@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Orchestrador 控制台</title>
+  <title>Orchestrador 量化研究控制台</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -11,8 +11,9 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">ORCHESTRADOR</p>
-        <h1>数据与智能体控制台</h1>
-        <p class="subtitle">统一查看运行状态、调用 Graph，并浏览分析结果。</p>
+        <h1>量化研究控制台</h1>
+        <p class="subtitle">调用研究与数据分析能力，沉淀可复核的研究结果。</p>
+        <p class="scope-note">当前处于研究基础建设阶段，不支持直接交易、下单或绕过独立风控。</p>
       </div>
       <div id="service-status" class="status status-loading" aria-live="polite">
         <span class="status-dot" aria-hidden="true"></span>
@@ -51,6 +52,7 @@
 
         <label for="graph-select">智能体</label>
         <select id="graph-select" name="graph" required></select>
+        <p id="graph-description" class="field-help">正在读取智能体能力…</p>
 
         <label for="model-select">基座模型</label>
         <select id="model-select" name="model" required></select>
@@ -64,7 +66,11 @@
         <label for="prompt">问题或分析要求</label>
         <textarea id="prompt" name="prompt" rows="8" required placeholder="例如：查询最近一周的数据并总结主要变化"></textarea>
 
-        <button id="submit-button" type="submit" class="primary">开始运行</button>
+        <div class="action-row">
+          <button id="submit-button" type="submit" class="primary">开始运行</button>
+          <button id="cancel-button" type="button" class="secondary" hidden>取消请求</button>
+          <button id="retry-runtime" type="button" class="secondary" hidden>重新加载配置</button>
+        </div>
         <p id="form-error" class="error" role="alert"></p>
       </form>
 
@@ -83,12 +89,21 @@
 
         <div id="result-content" class="result-content" hidden aria-live="polite">
           <article class="answer-block">
-            <h3>智能体回答</h3>
+            <div class="answer-heading">
+              <h3>智能体回答</h3>
+              <button id="copy-answer" type="button" class="text-button">复制结果</button>
+            </div>
+            <dl class="result-meta" aria-label="本次运行信息">
+              <div><dt>智能体</dt><dd id="result-graph">—</dd></div>
+              <div><dt>模型</dt><dd id="result-model">—</dd></div>
+              <div><dt>Thread ID</dt><dd id="result-thread">—</dd></div>
+              <div><dt>完成时间</dt><dd id="result-finished">—</dd></div>
+            </dl>
             <div id="answer-text" class="answer-text"></div>
           </article>
 
           <section id="image-section" class="image-section" hidden>
-            <h3>生成图表</h3>
+            <h3>分析附件与图表</h3>
             <div id="image-gallery" class="image-gallery"></div>
           </section>
 

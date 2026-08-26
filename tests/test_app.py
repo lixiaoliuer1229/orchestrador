@@ -24,7 +24,7 @@ def test_frontend() -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "数据与智能体控制台" in response.text
+    assert "量化研究控制台" in response.text
 
 
 def test_runtime() -> None:
