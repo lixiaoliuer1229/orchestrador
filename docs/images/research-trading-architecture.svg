@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="880" viewBox="0 0 1400 880" role="img" aria-labelledby="title desc">
+  <title id="title">Orchestrador 多市场智能量化研究与交易架构</title>
+  <desc id="desc">市场数据同时进入量化研究引擎和 LangGraph 智能研究层，两者双向协作并形成证据化候选信号，再经过确定性组合风控、订单管理和券商适配器。</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#44546f"/></marker></defs>
+  <rect width="1400" height="880" fill="#ffffff"/>
+  <text x="700" y="38" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="25" font-weight="700" fill="#172b4d">Orchestrador 多市场智能量化研究与交易架构</text>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" text-anchor="middle">
+    <rect x="390" y="70" width="620" height="72" rx="14" fill="#e9f2ff" stroke="#0c66e4" stroke-width="2"/>
+    <text x="700" y="100" font-size="18" font-weight="700" fill="#172b4d">市场数据与事件</text><text x="700" y="125" font-size="14" fill="#44546f">行情 · 财务 · 公告 · 新闻 · 公司行为 · 市场规则</text>
+    <rect x="100" y="220" width="440" height="205" rx="14" fill="#e3fcef" stroke="#22a06b" stroke-width="2"/>
+    <text x="320" y="252" font-size="19" font-weight="700" fill="#164b35">量化研究引擎（首期 Qlib）</text><text x="320" y="290" font-size="15" fill="#164b35">股票池与因子计算</text><text x="320" y="320" font-size="15" fill="#164b35">模型训练与收益预测</text><text x="320" y="350" font-size="15" fill="#164b35">组合优化与回测</text><text x="320" y="380" font-size="15" fill="#164b35">实验及版本管理</text>
+    <rect x="860" y="220" width="440" height="205" rx="14" fill="#f3f0ff" stroke="#6e5dc6" stroke-width="2"/>
+    <text x="1080" y="248" font-size="19" font-weight="700" fill="#352c63">LangGraph 智能研究层</text><text x="1080" y="272" font-size="14" fill="#6e5dc6">吸收 AI Berkshire 方法论</text><text x="1080" y="306" font-size="15" fill="#352c63">联网检索与来源管理</text><text x="1080" y="334" font-size="15" fill="#352c63">基本面 · 财报 · 行业 · 新闻研究</text><text x="1080" y="362" font-size="15" fill="#352c63">多来源交叉验证</text><text x="1080" y="390" font-size="15" fill="#352c63">多空审查与投资论文跟踪</text>
+    <rect x="410" y="500" width="580" height="105" rx="14" fill="#fff7d6" stroke="#e2b203" stroke-width="2"/>
+    <text x="700" y="530" font-size="19" font-weight="700" fill="#533f04">证据化候选信号</text><text x="700" y="562" font-size="14" fill="#533f04">symbol · direction · score · confidence</text><text x="700" y="585" font-size="14" fill="#533f04">validity · strategy_version · evidence_ids</text>
+    <rect x="410" y="660" width="580" height="105" rx="14" fill="#ffedeb" stroke="#c9372c" stroke-width="2"/>
+    <text x="700" y="690" font-size="19" font-weight="700" fill="#5d1f1a">确定性组合与风控</text><text x="700" y="722" font-size="14" fill="#5d1f1a">仓位 · 市场规则 · 数据新鲜度 · 回撤/损失限制</text><text x="700" y="745" font-size="14" fill="#5d1f1a">幂等检查 · 人工审批</text>
+    <rect x="410" y="815" width="580" height="52" rx="14" fill="#f1f2f4" stroke="#626f86" stroke-width="2"/>
+    <text x="700" y="847" font-size="17" font-weight="700" fill="#172b4d">OMS 与市场/券商适配器：A股 · 美股 · 其他市场</text>
+  </g>
+  <g fill="none" stroke="#44546f" stroke-width="2.4" marker-end="url(#arrow)">
+    <path d="M570 142 L320 220"/><path d="M830 142 L1080 220"/>
+    <path d="M540 285 C660 220 740 220 860 285"/><path d="M860 365 C735 455 665 455 540 365"/>
+    <path d="M320 425 L540 500"/><path d="M1080 425 L860 500"/>
+    <path d="M700 605 L700 660"/><path d="M700 765 L700 815"/>
+  </g>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#44546f" text-anchor="middle"><text x="700" y="246">候选标的 / 异常因子 →</text><text x="700" y="437">← 研究假设 / 待验证因子</text></g>
+</svg>
