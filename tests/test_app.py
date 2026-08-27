@@ -39,14 +39,16 @@ def test_runtime() -> None:
         "cheap-chat",
         "minimax-latest",
     ]
-    assert body["graphs"] == ["chatbot", "data_agent"]
+    assert body["graphs"] == ["chatbot", "data_agent", "research_agent"]
 
 
 def test_graph_list() -> None:
     response = client.get("/graphs")
 
     assert response.status_code == 200
-    assert response.json() == {"graphs": ["chatbot", "data_agent"]}
+    assert response.json() == {
+        "graphs": ["chatbot", "data_agent", "research_agent"]
+    }
 
 
 def test_unknown_graph() -> None:

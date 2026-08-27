@@ -3,6 +3,7 @@ const state = {graphs: [], controller: null, timer: null};
 const graphProfiles = {
   chatbot: {label: "通用研究助手", description: "用于研究讨论、信息梳理和问题分析；结论不构成交易指令。", placeholder: "例如：梳理这项研究假设需要哪些证据，并列出主要风险"},
   data_agent: {label: "只读数据分析", description: "仅执行单条只读 MySQL 查询，用于数据检索与结果总结。", placeholder: "例如：查询最近一周的数据并总结主要变化"},
+  research_agent: {label: "联网深度研究", description: "规划检索、并发搜索并生成带来源 ID 的结构化研究报告。", placeholder: "例如：研究生成式 AI 对软件行业商业模式的影响，并说明主要证据与局限"},
 };
 
 const byId = (id) => document.getElementById(id);

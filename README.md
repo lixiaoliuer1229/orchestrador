@@ -117,7 +117,12 @@ app/
 ├── auth.py              # 认证与用户管理
 ├── graphs/              # 正式 Agent / Graph
 │   ├── chat.py
-│   └── data.py
+│   ├── data.py
+│   └── research/
+│       ├── graph.py     # 规划、搜索和报告节点
+│       ├── models.py    # 结构化计划、来源和报告
+│       ├── search.py    # 受控 Tavily 适配器
+│       └── state.py     # ResearchState
 └── tools/               # 权限受控、可独立测试的工具
     └── sql.py
 
@@ -153,6 +158,19 @@ pip install -r requirements.txt
 调用 `POST /graphs/{graph_name}/invoke` 时可在 JSON 顶层传入 `model`；未传时使用
 `ANTHROPIC_MODEL`。服务只接受上述白名单，前端控制台也提供对应的模型选择框。
 - `TAVILY_API_KEY`
+
+`research_agent` 使用受控的联网研究流程，相关限制可以通过以下变量调整：
+
+- `RESEARCH_MAX_QUERIES`：单次研究最多搜索词数，默认 `5`，上限 `7`。
+- `RESEARCH_RESULTS_PER_QUERY`：每个搜索词最多结果数，默认 `5`，上限 `10`。
+- `RESEARCH_SEARCH_DEPTH`：Tavily 搜索深度，默认 `advanced`；可改为 `basic`、`fast` 或 `ultra-fast` 以控制成本和延迟。
+- `RESEARCH_SEARCH_CONCURRENCY`：并发搜索数，默认 `3`，上限 `7`。
+- `RESEARCH_SEARCH_TIMEOUT_SECONDS`：单次搜索超时，默认 `20` 秒，上限 `60` 秒。
+- `RESEARCH_SEARCH_RETRIES`：单次搜索尝试次数，默认 `2`，上限 `4`。
+- `RESEARCH_SOURCE_CHARS`：单个来源保留的最大正文字符数，默认 `6000`。
+- `RESEARCH_CONTEXT_CHARS`：报告节点接收的总来源字符数，默认 `40000`。
+
+当前来源随 Graph 结果返回，尚未持久化到数据库。来源持久化将与后续 Evidence/Claim 模型统一设计。
 
 `data_agent` 只能执行单条只读 MySQL 查询。生产环境必须使用数据库只读账号，并可通过以下变量收紧服务端限制：
 

@@ -37,6 +37,8 @@ from app.graphs.chat import create_graph as create_chatbot_graph
 from app.graphs.chat import graph as chatbot_graph
 from app.graphs.data import create_graph as create_data_agent_graph
 from app.graphs.data import graph as data_agent_graph
+from app.graphs.research import create_graph as create_research_graph
+from app.graphs.research import graph as research_graph
 
 
 logger = logging.getLogger(__name__)
@@ -45,10 +47,12 @@ login_attempts: dict[str, deque[float]] = defaultdict(deque)
 GRAPHS = {
     "chatbot": chatbot_graph,
     "data_agent": data_agent_graph,
+    "research_agent": research_graph,
 }
 GRAPH_FACTORIES = {
     "chatbot": create_chatbot_graph,
     "data_agent": create_data_agent_graph,
+    "research_agent": create_research_graph,
 }
 
 
