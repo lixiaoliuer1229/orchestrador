@@ -8,9 +8,9 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import psycopg
-from psycopg.rows import dict_row
 from pwdlib import PasswordHash
+
+from app.db import connect
 
 
 password_hash = PasswordHash.recommended()
@@ -26,14 +26,7 @@ def cookie_secure() -> bool:
 
 
 def _connect():
-    return psycopg.connect(
-        host=os.getenv("POSTGRES_HOST", "postgres"),
-        port=int(os.getenv("POSTGRES_PORT", "5432")),
-        dbname=os.environ["POSTGRES_DB"],
-        user=os.environ["POSTGRES_USER"],
-        password=os.environ["POSTGRES_PASSWORD"],
-        row_factory=dict_row,
-    )
+    return connect()
 
 
 def init_auth_database() -> None:

@@ -19,10 +19,12 @@ env/
 
 # ===== Env & Secrets =====
 .env
+.env.postgres
 .env.local
 .env.*.local
 # allowlist the template only (in case a wider pattern like *.env is ever added)
 !.env.example
+!.env.postgres.example
 
 # ===== Data / Storage =====
 data/

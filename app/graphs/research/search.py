@@ -7,10 +7,11 @@ import hashlib
 import os
 from datetime import datetime, timezone
 from typing import Any, Protocol
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from langchain_tavily import TavilySearch
 
-from app.graphs.research.models import SearchItem, Source
+from app.research.models import SearchItem, SourceDocument
 
 
 def _env_int(name: str, default: int, maximum: int) -> int:
@@ -32,7 +33,26 @@ def _env_choice(name: str, default: str, choices: set[str]) -> str:
 
 
 class Searcher(Protocol):
-    async def search(self, item: SearchItem) -> list[Source]: ...
+    async def search(self, item: SearchItem) -> list[SourceDocument]: ...
+
+
+def _canonical_url(value: str) -> str:
+    parts = urlsplit(value.strip())
+    filtered = [
+        (key, item)
+        for key, item in parse_qsl(parts.query, keep_blank_values=True)
+        if not key.lower().startswith("utm_")
+        and key.lower() not in {"fbclid", "gclid"}
+    ]
+    return urlunsplit(
+        (
+            parts.scheme.lower(),
+            parts.netloc.lower(),
+            parts.path or "/",
+            urlencode(sorted(filtered)),
+            "",
+        )
+    )
 
 
 class TavilySearcher:
@@ -52,7 +72,7 @@ class TavilySearcher:
             include_raw_content="markdown",
         )
 
-    async def search(self, item: SearchItem) -> list[Source]:
+    async def search(self, item: SearchItem) -> list[SourceDocument]:
         error: Exception | None = None
         for attempt in range(self.retries):
             try:
@@ -71,29 +91,37 @@ class TavilySearcher:
                     await asyncio.sleep(0.25 * (2**attempt))
         raise RuntimeError("search failed after retries") from error
 
-    def _sources(self, item: SearchItem, results: list[dict[str, Any]]) -> list[Source]:
+    def _sources(
+        self, item: SearchItem, results: list[dict[str, Any]]
+    ) -> list[SourceDocument]:
         retrieved_at = datetime.now(timezone.utc)
-        sources: list[Source] = []
+        sources: list[SourceDocument] = []
         for result in results:
             url = str(result.get("url") or "").strip()
             title = str(result.get("title") or "").strip()
             if not url or not title:
                 continue
             raw = result.get("raw_content") or result.get("content") or ""
-            content = str(raw).strip()[: self.source_chars]
+            raw_content = str(raw).strip()
+            content = raw_content[: self.source_chars]
             if not content:
                 continue
-            source_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:20]
+            canonical_url = _canonical_url(url)
+            source_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()[:24]
+            content_hash = hashlib.sha256(raw_content.encode("utf-8")).hexdigest()
             score = result.get("score")
             sources.append(
-                Source(
+                SourceDocument(
                     source_id=source_id,
-                    query=item.query,
+                    canonical_url=canonical_url,
                     title=title,
-                    url=url,
+                    publisher=urlsplit(canonical_url).netloc,
                     content=content,
+                    content_hash=content_hash,
+                    queries=[item.query],
                     score=float(score) if score is not None else None,
                     retrieved_at=retrieved_at,
+                    metadata={"provider": "tavily"},
                 )
             )
         return sources

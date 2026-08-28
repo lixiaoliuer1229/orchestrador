@@ -115,16 +115,19 @@ app/
 ├── main.py              # FastAPI 统一入口和 Graph 注册
 ├── model_config.py      # 模型别名与客户端配置
 ├── auth.py              # 认证与用户管理
+├── db.py                # PostgreSQL 连接配置
 ├── graphs/              # 正式 Agent / Graph
 │   ├── chat.py
 │   ├── data.py
 │   └── research/
 │       ├── graph.py     # 规划、搜索和报告节点
-│       ├── models.py    # 结构化计划、来源和报告
 │       ├── search.py    # 受控 Tavily 适配器
 │       └── state.py     # ResearchState
 └── tools/               # 权限受控、可独立测试的工具
     └── sql.py
+
+app/research/            # 研究领域模型、证据校验和 Repository
+migrations/              # Alembic 数据库迁移
 
 tests/                   # API、Graph 与安全回归测试
 ```
@@ -170,7 +173,7 @@ pip install -r requirements.txt
 - `RESEARCH_SOURCE_CHARS`：单个来源保留的最大正文字符数，默认 `6000`。
 - `RESEARCH_CONTEXT_CHARS`：报告节点接收的总来源字符数，默认 `40000`。
 
-当前来源随 Graph 结果返回，尚未持久化到数据库。来源持久化将与后续 Evidence/Claim 模型统一设计。
+`research_agent` 会持久化 `ResearchRun`、来源正文、Evidence、Claim 和最终报告。Evidence 摘录必须能在来源正文中定位；Claim 引用不存在或未通过定位校验的 Evidence 时，会被标记为 `partially_supported`、`unsupported` 或 `unverified`，不能静默视为已验证事实。
 
 `data_agent` 只能执行单条只读 MySQL 查询。生产环境必须使用数据库只读账号，并可通过以下变量收紧服务端限制：
 
@@ -183,10 +186,24 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
+cp .env.postgres.example .env.postgres
 # 编辑 .env，填入真实配置
 ```
 
 系统环境变量的优先级高于 `.env`，真实密钥不要提交到 Git。
+
+首次启动或更新版本时执行数据库迁移：
+
+```bash
+python -m alembic upgrade head
+```
+
+Docker 镜像会在启动 API 前自动执行迁移。研究数据通过 PostgreSQL 持久化，包含运行记录、来源原文、证据摘录、主张及其引用关系。
+
+研究历史接口：
+
+- `GET /research/runs`：分页查询研究运行记录。
+- `GET /research/runs/{run_id}`：查看一次研究的来源、证据、主张和报告。
 
 ## 测试
 

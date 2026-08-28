@@ -1,12 +1,15 @@
 import os
+from datetime import datetime, timezone
 
 os.environ["AUTH_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
+from app import main
 from app.main import GRAPHS, app
 from app.model_config import create_chat_model
+from app.research.models import ResearchRun
 
 
 client = TestClient(app)
@@ -100,3 +103,42 @@ def test_unknown_model_is_rejected() -> None:
 def test_model_factory_uses_requested_alias() -> None:
     assert create_chat_model("cheap-chat").model == "cheap-chat"
     assert create_chat_model("minimax-latest").model == "minimax-latest"
+
+
+def test_research_run_history(monkeypatch) -> None:
+    run = ResearchRun(
+        run_id="11111111-1111-1111-1111-111111111111",
+        query="test query",
+        graph_version="research-v2",
+        model="coding-chat",
+        started_at=datetime.now(timezone.utc),
+    )
+
+    class FakeRepo:
+        def list(self, limit, offset):
+            assert (limit, offset) == (10, 0)
+            return [run]
+
+        def get(self, run_id):
+            return None
+
+    monkeypatch.setattr(main, "research_repo", FakeRepo())
+
+    response = client.get("/research/runs?limit=10")
+
+    assert response.status_code == 200
+    assert response.json()[0]["run_id"] == run.run_id
+
+
+def test_missing_research_run(monkeypatch) -> None:
+    class FakeRepo:
+        def get(self, run_id):
+            return None
+
+    monkeypatch.setattr(main, "research_repo", FakeRepo())
+
+    response = client.get(
+        "/research/runs/11111111-1111-1111-1111-111111111111"
+    )
+
+    assert response.status_code == 404

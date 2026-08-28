@@ -32,6 +32,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+      - .env.postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       # Bind to loopback; publish through an authenticated HTTPS reverse proxy.
       - "127.0.0.1:${APP_PORT:-8123}:8000"

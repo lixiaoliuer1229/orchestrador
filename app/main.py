@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
@@ -33,6 +34,8 @@ from app.auth import (
     set_user_active,
 )
 from app.model_config import SUPPORTED_MODELS, configured_model
+from app.research.models import ResearchRun, RunDetail
+from app.research.repo import PostgresResearchRepo
 from app.graphs.chat import create_graph as create_chatbot_graph
 from app.graphs.chat import graph as chatbot_graph
 from app.graphs.data import create_graph as create_data_agent_graph
@@ -43,6 +46,7 @@ from app.graphs.research import graph as research_graph
 
 logger = logging.getLogger(__name__)
 login_attempts: dict[str, deque[float]] = defaultdict(deque)
+research_repo = PostgresResearchRepo()
 
 GRAPHS = {
     "chatbot": chatbot_graph,
@@ -246,6 +250,21 @@ async def health() -> dict[str, Any]:
 @app.get("/graphs", tags=["graphs"])
 async def list_graphs() -> dict[str, list[str]]:
     return {"graphs": sorted(GRAPHS)}
+
+
+@app.get("/research/runs", response_model=list[ResearchRun], tags=["research"])
+async def list_research_runs(limit: int = 20, offset: int = 0):
+    if limit < 1 or limit > 100 or offset < 0:
+        raise HTTPException(status_code=422, detail="Invalid pagination")
+    return await asyncio.to_thread(research_repo.list, limit, offset)
+
+
+@app.get("/research/runs/{run_id}", response_model=RunDetail, tags=["research"])
+async def get_research_run(run_id: UUID):
+    result = await asyncio.to_thread(research_repo.get, str(run_id))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Research run not found")
+    return result
 
 
 @app.get("/runtime", tags=["runtime"])

@@ -32,6 +32,9 @@ services:
       POSTGRES_HOST: postgres
       AUTH_ENABLED: "true"
       AUTH_COOKIE_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PUBLIC_APP_PORT:-80}:8000"
     volumes:
