@@ -68,7 +68,7 @@
 
         <div class="action-row">
           <button id="submit-button" type="submit" class="primary">开始运行</button>
-          <button id="cancel-button" type="button" class="secondary" hidden>取消请求</button>
+          <button id="cancel-button" type="button" class="secondary" hidden>停止等待</button>
           <button id="retry-runtime" type="button" class="secondary" hidden>重新加载配置</button>
         </div>
         <p id="form-error" class="error" role="alert"></p>
@@ -99,7 +99,8 @@
               <div><dt>Thread ID</dt><dd id="result-thread">—</dd></div>
               <div><dt>完成时间</dt><dd id="result-finished">—</dd></div>
             </dl>
-            <div id="answer-text" class="answer-text"></div>
+            <div id="answer-text" class="answer-text markdown-body"></div>
+            <button id="open-current-run" type="button" class="secondary archive-link" hidden>查看完整研究档案</button>
           </article>
 
           <section id="image-section" class="image-section" hidden>
@@ -113,6 +114,27 @@
           </details>
         </div>
       </section>
+    </section>
+
+    <section class="research-archive" aria-labelledby="archive-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">RESEARCH ARCHIVE</p>
+          <h2 id="archive-title">可追溯研究档案</h2>
+          <p class="field-help">查看持久化的来源、证据、主张及其验证关系。</p>
+        </div>
+        <button id="refresh-runs" type="button" class="secondary">刷新历史</button>
+      </div>
+      <p id="archive-error" class="error" role="alert"></p>
+      <div class="archive-layout">
+        <aside class="run-list-panel" aria-label="研究运行历史">
+          <div id="run-list" class="run-list"></div>
+          <button id="load-more-runs" type="button" class="secondary load-more" hidden>加载更多</button>
+        </aside>
+        <section id="run-detail" class="run-detail" aria-live="polite">
+          <div class="empty-state compact"><p>选择一条研究记录，查看完整证据链。</p></div>
+        </section>
+      </div>
     </section>
   </main>
   <script src="/static/app.js" defer></script>

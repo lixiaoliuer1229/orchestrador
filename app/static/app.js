@@ -1,4 +1,4 @@
-const state = {graphs: [], controller: null, timer: null};
+const state = {graphs: [], controller: null, timer: null, runOffset: 0, runPageSize: 20, currentRunId: null};
 
 const graphProfiles = {
   chatbot: {label: "通用研究助手", description: "用于研究讨论、信息梳理和问题分析；结论不构成交易指令。", placeholder: "例如：梳理这项研究假设需要哪些证据，并列出主要风险"},
@@ -18,6 +18,8 @@ const elements = {
   imageSection: byId("image-section"), gallery: byId("image-gallery"), copyAnswer: byId("copy-answer"),
   resultGraph: byId("result-graph"), resultModel: byId("result-model"), resultThread: byId("result-thread"),
   resultFinished: byId("result-finished"), currentUser: byId("current-user"), adminLink: byId("admin-link"), logout: byId("logout"),
+  openCurrentRun: byId("open-current-run"), refreshRuns: byId("refresh-runs"), loadMoreRuns: byId("load-more-runs"),
+  runList: byId("run-list"), runDetail: byId("run-detail"), archiveError: byId("archive-error"),
 };
 
 async function loadIdentity() {
@@ -68,6 +70,58 @@ function latestAnswer(result) {
   const preferred = [...messages].reverse().find((message) => ["ai", "assistant"].includes(message?.type || message?.role));
   const fallback = messages.at(-1);
   return extractText(preferred?.content ?? fallback?.content ?? result);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("zh-CN", {dateStyle: "medium", timeStyle: "medium"}).format(new Date(value));
+}
+
+function statusLabel(status) {
+  return {running: "运行中", completed: "已完成", failed: "失败", supported: "已支持", partially_supported: "部分支持", conflicting: "证据冲突", unsupported: "不支持", unverified: "未验证", stale: "已过期"}[status] || status || "未知";
+}
+
+function appendInline(parent, text) {
+  const pattern = /\[([^\]]+)\]/g;
+  let cursor = 0;
+  for (const match of text.matchAll(pattern)) {
+    parent.append(document.createTextNode(text.slice(cursor, match.index)));
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "reference-link";
+    button.dataset.reference = match[1];
+    button.textContent = match[0];
+    parent.append(button);
+    cursor = match.index + match[0].length;
+  }
+  parent.append(document.createTextNode(text.slice(cursor)));
+}
+
+function renderMarkdown(container, markdown) {
+  container.replaceChildren();
+  let list = null;
+  String(markdown || "").split(/\r?\n/).forEach((line) => {
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const item = line.match(/^[-*]\s+(.+)$/);
+    if (heading) {
+      list = null;
+      const node = document.createElement(`h${heading[1].length}`);
+      appendInline(node, heading[2]);
+      container.append(node);
+    } else if (item) {
+      if (!list) { list = document.createElement("ul"); container.append(list); }
+      const node = document.createElement("li");
+      appendInline(node, item[1]);
+      list.append(node);
+    } else if (line.trim()) {
+      list = null;
+      const node = document.createElement("p");
+      appendInline(node, line);
+      container.append(node);
+    } else {
+      list = null;
+    }
+  });
 }
 
 function imagePaths(result) {
@@ -134,6 +188,178 @@ async function loadRuntime() {
   }
 }
 
+function badge(status) {
+  const node = document.createElement("span");
+  node.className = `badge badge-${status}`;
+  node.textContent = statusLabel(status);
+  return node;
+}
+
+function makeRunItem(run) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "run-item";
+  button.dataset.runId = run.run_id;
+  const title = document.createElement("span");
+  title.className = "run-item-title";
+  title.textContent = run.query;
+  const meta = document.createElement("span");
+  meta.className = "run-item-meta";
+  meta.append(badge(run.status), document.createTextNode(run.model), document.createTextNode(formatDate(run.started_at)));
+  button.append(title, meta);
+  button.addEventListener("click", () => loadRunDetail(run.run_id));
+  return button;
+}
+
+async function loadResearchRuns({reset = false} = {}) {
+  if (reset) {
+    state.runOffset = 0;
+    elements.runList.replaceChildren();
+  }
+  elements.archiveError.textContent = "";
+  elements.refreshRuns.disabled = true;
+  elements.loadMoreRuns.disabled = true;
+  try {
+    const response = await fetch(`/research/runs?limit=${state.runPageSize}&offset=${state.runOffset}`);
+    const runs = await response.json();
+    if (!response.ok) throw new Error(runs.detail || "研究历史读取失败");
+    runs.forEach((run) => elements.runList.append(makeRunItem(run)));
+    state.runOffset += runs.length;
+    elements.loadMoreRuns.hidden = runs.length < state.runPageSize;
+    if (!elements.runList.children.length) {
+      const empty = document.createElement("p");
+      empty.className = "field-help";
+      empty.textContent = "暂无持久化研究记录。";
+      elements.runList.append(empty);
+    }
+  } catch (error) {
+    elements.archiveError.textContent = `${error.message}；Graph 调用功能仍可正常使用。`;
+    elements.loadMoreRuns.hidden = true;
+  } finally {
+    elements.refreshRuns.disabled = false;
+    elements.loadMoreRuns.disabled = false;
+  }
+}
+
+function detailSection(title) {
+  const section = document.createElement("section");
+  section.className = "detail-section";
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  const list = document.createElement("div");
+  list.className = "record-list";
+  section.append(heading, list);
+  return {section, list};
+}
+
+function recordCard(id, text, meta, status) {
+  const card = document.createElement("article");
+  card.className = "record-card";
+  card.id = `record-${id}`;
+  const heading = document.createElement("div");
+  heading.className = "record-heading";
+  const code = document.createElement("span");
+  code.className = "record-id";
+  code.textContent = id;
+  heading.append(code);
+  if (status) heading.append(badge(status));
+  const content = document.createElement("div");
+  content.textContent = text;
+  card.append(heading, content);
+  if (meta) {
+    const small = document.createElement("div");
+    small.className = "record-meta";
+    appendInline(small, meta);
+    card.append(small);
+  }
+  return card;
+}
+
+function renderRunDetail(detail) {
+  const {run, sources = [], evidence = [], claims = []} = detail;
+  state.currentRunId = run.run_id;
+  elements.runList.querySelectorAll(".run-item").forEach((item) => item.classList.toggle("is-active", item.dataset.runId === run.run_id));
+  elements.runDetail.replaceChildren();
+
+  const header = document.createElement("header");
+  header.className = "detail-header";
+  const title = document.createElement("h3");
+  title.textContent = run.query;
+  const meta = document.createElement("div");
+  meta.className = "run-item-meta";
+  meta.append(badge(run.status), document.createTextNode(`${run.model} · ${run.graph_version}`), document.createTextNode(formatDate(run.started_at)));
+  const supported = claims.filter((item) => ["supported", "partially_supported"].includes(item.verification_status)).length;
+  const stats = document.createElement("div");
+  stats.className = "detail-stats";
+  [[sources.length, "来源"], [evidence.length, "证据"], [claims.length, "主张"], [supported, "有支持主张"]].forEach(([value, label]) => {
+    const box = document.createElement("div");
+    const strong = document.createElement("strong"); strong.textContent = value;
+    const span = document.createElement("span"); span.textContent = label;
+    box.append(strong, span); stats.append(box);
+  });
+  header.append(title, meta, stats);
+  elements.runDetail.append(header);
+
+  if (run.report) {
+    const {section, list} = detailSection("最终报告");
+    const report = document.createElement("div");
+    report.className = "markdown-body";
+    renderMarkdown(report, run.report.markdown_report);
+    list.append(report);
+    if (run.report.limitations?.length) list.append(recordCard("limitations", run.report.limitations.join("；"), "研究局限"));
+    elements.runDetail.append(section);
+  }
+  if (run.failures?.length || run.error) {
+    const {section, list} = detailSection("失败与异常");
+    run.failures?.forEach((item, index) => list.append(recordCard(`failure-${index}`, item.query, item.error)));
+    if (run.error) list.append(recordCard("run-error", run.error, "运行错误", "failed"));
+    elements.runDetail.append(section);
+  }
+  const claimSection = detailSection(`主张（${claims.length}）`);
+  claims.forEach((item) => claimSection.list.append(recordCard(item.claim_id, item.statement, `${item.claim_type} · 置信度 ${Math.round(item.confidence * 100)}% · 证据 ${item.evidence_ids.map((id) => `[${id}]`).join("、") || "无"}`, item.verification_status)));
+  elements.runDetail.append(claimSection.section);
+  const evidenceSection = detailSection(`证据（${evidence.length}）`);
+  evidence.forEach((item) => evidenceSection.list.append(recordCard(item.evidence_id, `“${item.excerpt}”`, `来源 [${item.source_id}] · 置信度 ${Math.round(item.confidence * 100)}%${item.data_period ? ` · ${item.data_period}` : ""}`)));
+  elements.runDetail.append(evidenceSection.section);
+  const sourceSection = detailSection(`来源（${sources.length}）`);
+  sources.forEach((item) => {
+    const card = recordCard(item.source_id, item.title, `${item.publisher || "未知发布者"} · 抓取于 ${formatDate(item.retrieved_at)}`);
+    const link = document.createElement("a");
+    link.className = "source-link";
+    link.href = item.canonical_url;
+    link.target = "_blank";
+    link.rel = "noreferrer noopener";
+    link.textContent = item.canonical_url;
+    card.append(link);
+    sourceSection.list.append(card);
+  });
+  elements.runDetail.append(sourceSection.section);
+}
+
+async function loadRunDetail(runId) {
+  elements.archiveError.textContent = "";
+  elements.runDetail.setAttribute("aria-busy", "true");
+  try {
+    const response = await fetch(`/research/runs/${encodeURIComponent(runId)}`);
+    const detail = await response.json();
+    if (!response.ok) throw new Error(detail.detail || "研究详情读取失败");
+    renderRunDetail(detail);
+    elements.runDetail.scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (error) {
+    elements.archiveError.textContent = error.message;
+  } finally {
+    elements.runDetail.removeAttribute("aria-busy");
+  }
+}
+
+function focusReference(reference) {
+  const target = document.getElementById(`record-${reference}`);
+  if (!target) return;
+  target.classList.add("is-highlighted");
+  target.scrollIntoView({behavior: "smooth", block: "center"});
+  window.setTimeout(() => target.classList.remove("is-highlighted"), 1800);
+}
+
 async function invoke(event) {
   event.preventDefault();
   elements.error.textContent = "";
@@ -160,18 +386,23 @@ async function invoke(event) {
 
     elements.empty.hidden = true;
     elements.content.hidden = false;
-    elements.answer.textContent = latestAnswer(payload);
+    const answer = latestAnswer(payload);
+    if (elements.graphSelect.value === "research_agent") renderMarkdown(elements.answer, answer);
+    else elements.answer.textContent = answer;
     elements.raw.textContent = JSON.stringify(payload, null, 2);
     elements.resultGraph.textContent = graphProfile(elements.graphSelect.value).label;
     elements.resultModel.textContent = elements.modelSelect.value;
     elements.resultThread.textContent = elements.threadId.value.trim();
     elements.resultFinished.textContent = new Intl.DateTimeFormat("zh-CN", {dateStyle: "medium", timeStyle: "medium"}).format(new Date());
     renderImages(imagePaths(payload));
+    elements.openCurrentRun.hidden = !payload.run_id;
+    elements.openCurrentRun.dataset.runId = payload.run_id || "";
+    if (payload.run_id) await loadResearchRuns({reset: true});
     elements.elapsed.textContent = `${((performance.now() - startedAt) / 1000).toFixed(1)} 秒完成`;
   } catch (error) {
     if (error.name === "AbortError") {
-      elements.error.textContent = "请求已取消。服务端任务可能仍会继续执行，请稍后检查相关运行状态。";
-      elements.elapsed.textContent = "已取消";
+      elements.error.textContent = "已停止等待。后端研究可能仍在执行，可稍后在研究档案中查看状态。";
+      elements.elapsed.textContent = "已停止等待";
     } else {
       elements.error.textContent = error.message;
       elements.elapsed.textContent = "运行失败";
@@ -192,6 +423,13 @@ elements.form.addEventListener("submit", invoke);
 elements.graphSelect.addEventListener("change", updateGraphGuidance);
 elements.cancel.addEventListener("click", () => state.controller?.abort());
 elements.retryRuntime.addEventListener("click", loadRuntime);
+elements.refreshRuns.addEventListener("click", () => loadResearchRuns({reset: true}));
+elements.loadMoreRuns.addEventListener("click", () => loadResearchRuns());
+elements.openCurrentRun.addEventListener("click", () => loadRunDetail(elements.openCurrentRun.dataset.runId));
+document.addEventListener("click", (event) => {
+  const reference = event.target.closest("[data-reference]")?.dataset.reference;
+  if (reference) focusReference(reference);
+});
 elements.copyAnswer.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.answer.textContent);
@@ -207,3 +445,4 @@ elements.logout.addEventListener("click", async () => {
 });
 loadIdentity();
 loadRuntime();
+loadResearchRuns({reset: true});
