@@ -1,9 +1,10 @@
-const state = {graphs: [], controller: null, timer: null, runOffset: 0, runPageSize: 20, currentRunId: null};
+const state = {graphs: [], controller: null, timer: null, runOffset: 0, runPageSize: 20, currentRunId: null, signalOffset: 0, signalPageSize: 20, currentSignalRunId: null};
 
 const graphProfiles = {
   chatbot: {label: "通用研究助手", description: "用于研究讨论、信息梳理和问题分析；结论不构成交易指令。", placeholder: "例如：梳理这项研究假设需要哪些证据，并列出主要风险"},
   data_agent: {label: "只读数据分析", description: "仅执行单条只读 MySQL 查询，用于数据检索与结果总结。", placeholder: "例如：查询最近一周的数据并总结主要变化"},
   research_agent: {label: "联网深度研究", description: "规划检索、并发搜索并生成带来源 ID 的结构化研究报告。", placeholder: "例如：研究生成式 AI 对软件行业商业模式的影响，并说明主要证据与局限"},
+  signal_agent: {label: "投资信号转换", description: "将指定研究运行中的合格 Claim 转换为带完整证据血缘的候选信号。", placeholder: "请输入 Research Run ID，例如：11111111-1111-1111-1111-111111111111"},
 };
 
 const byId = (id) => document.getElementById(id);
@@ -11,7 +12,7 @@ const elements = {
   status: byId("service-status"), modelName: byId("model-name"), modelEndpoint: byId("model-endpoint"),
   graphCount: byId("graph-count"), graphNames: byId("graph-names"), requestTimeout: byId("request-timeout"),
   form: byId("invoke-form"), graphSelect: byId("graph-select"), graphDescription: byId("graph-description"),
-  modelSelect: byId("model-select"), threadId: byId("thread-id"), prompt: byId("prompt"),
+  modelSelect: byId("model-select"), threadId: byId("thread-id"), prompt: byId("prompt"), promptLabel: byId("prompt-label"),
   submit: byId("submit-button"), cancel: byId("cancel-button"), retryRuntime: byId("retry-runtime"),
   newThread: byId("new-thread"), error: byId("form-error"), empty: byId("empty-state"),
   content: byId("result-content"), answer: byId("answer-text"), raw: byId("raw-json"), elapsed: byId("elapsed-time"),
@@ -20,6 +21,10 @@ const elements = {
   resultFinished: byId("result-finished"), currentUser: byId("current-user"), adminLink: byId("admin-link"), logout: byId("logout"),
   openCurrentRun: byId("open-current-run"), refreshRuns: byId("refresh-runs"), loadMoreRuns: byId("load-more-runs"),
   runList: byId("run-list"), runDetail: byId("run-detail"), archiveError: byId("archive-error"),
+  openCurrentSignalRun: byId("open-current-signal-run"), refreshSignals: byId("refresh-signals"),
+  signalFilters: byId("signal-filters"), instrumentFilter: byId("instrument-filter"), researchRunFilter: byId("research-run-filter"),
+  clearSignalFilters: byId("clear-signal-filters"), signalError: byId("signal-error"), signalList: byId("signal-list"),
+  signalDetail: byId("signal-detail"), loadMoreSignals: byId("load-more-signals"),
 };
 
 async function loadIdentity() {
@@ -48,6 +53,9 @@ function updateGraphGuidance() {
   const profile = graphProfile(elements.graphSelect.value);
   elements.graphDescription.textContent = profile.description;
   elements.prompt.placeholder = profile.placeholder;
+  const isSignal = elements.graphSelect.value === "signal_agent";
+  elements.promptLabel.textContent = isSignal ? "Research Run ID" : "问题或分析要求";
+  elements.prompt.rows = isSignal ? 2 : 8;
 }
 
 function setFormAvailable(available) {
@@ -373,10 +381,14 @@ async function invoke(event) {
   state.timer = window.setInterval(updateElapsed, 100);
 
   try {
-    const response = await fetch(`/graphs/${encodeURIComponent(elements.graphSelect.value)}/invoke`, {
+    const graphName = elements.graphSelect.value;
+    const graphInput = graphName === "signal_agent"
+      ? {research_run_id: elements.prompt.value.trim()}
+      : {messages: [{role: "user", content: elements.prompt.value.trim()}]};
+    const response = await fetch(`/graphs/${encodeURIComponent(graphName)}/invoke`, {
       method: "POST", headers: {"Content-Type": "application/json"}, signal: state.controller.signal,
       body: JSON.stringify({
-        input: {messages: [{role: "user", content: elements.prompt.value.trim()}]},
+        input: graphInput,
         config: {configurable: {thread_id: elements.threadId.value.trim()}},
         model: elements.modelSelect.value,
       }),

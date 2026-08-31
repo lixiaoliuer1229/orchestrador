@@ -59,7 +59,7 @@ AI Berkshire 中值得吸收的是研究纪律和工作流，包括财务数据�
 5. 先运行回测和模拟盘，保留人工审批并完成每日成交、持仓与资金对账。
 6. 经数月稳定模拟、故障恢复和极端行情测试后，再评估小资金自动执行。
 
-当前仓库仍处于 Agent API 与研究能力的基础建设阶段。现有 `chatbot` 和 `data_agent` 是正式基础能力；联网研究、量化研究和交易链路将按上述架构逐步建设，目前尚未完成。
+当前仓库已经完成安全数据访问、联网研究、证据审计和标准化候选信号四层基础能力。Qlib 数据适配、因子检验、组合、风控及交易链路尚未完成。
 
 ## API 入口
 
@@ -86,6 +86,10 @@ python -m uvicorn app.main:app \
 - `GET /health`：服务和 Graph 注册状态。
 - `GET /graphs`：已注册 Graph 列表。
 - `POST /graphs/{graph_name}/invoke`：调用指定 Graph。
+- `GET /research/runs`：查询可追溯研究运行。
+- `GET /signals`：按证券或研究运行查询候选信号。
+- `GET /signals/{signal_id}`：查看 Signal → Claim → Evidence → Source 血缘。
+- `GET /signals/runs/{signal_run_id}`：查看一次信号转换运行。
 - `GET /docs`：OpenAPI 文档。
 - `GET /images/{filename}`：数据分析生成的图片。
 
@@ -119,6 +123,7 @@ app/
 ├── graphs/              # 正式 Agent / Graph
 │   ├── chat.py
 │   ├── data.py
+│   ├── signals.py       # Claim 到候选 Signal 的受控转换
 │   └── research/
 │       ├── graph.py     # 规划、搜索和报告节点
 │       ├── search.py    # 受控 Tavily 适配器
@@ -127,6 +132,7 @@ app/
     └── sql.py
 
 app/research/            # 研究领域模型、证据校验和 Repository
+app/signals/             # 证券、信号模型、校验和 Repository
 migrations/              # Alembic 数据库迁移
 
 tests/                   # API、Graph 与安全回归测试
@@ -175,6 +181,18 @@ pip install -r requirements.txt
 
 `research_agent` 会持久化 `ResearchRun`、来源正文、Evidence、Claim 和最终报告。Evidence 摘录必须能在来源正文中定位；Claim 引用不存在或未通过定位校验的 Evidence 时，会被标记为 `partially_supported`、`unsupported` 或 `unverified`，不能静默视为已验证事实。
 
+`signal_agent` 接收 `research_run_id`，只允许包含 Evidence 且状态为 `supported` 或 `partially_supported` 的 Claim 形成候选 Signal。它支持 A 股 `XSHG/XSHE/BSE` 与美股 `XNYS/XNAS/XASE` 证券标识，保存方向、强度、置信度、有效时间和完整血缘。部分支持的 Claim 会降低信号置信度；未知 Claim、无证据 Claim 和非法证券代码不会落库。候选 Signal 不能直接触发下单。
+
+信号转换调用示例：
+
+```bash
+curl -X POST http://127.0.0.1:8000/graphs/signal_agent/invoke \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "input": {"research_run_id": "11111111-1111-1111-1111-111111111111"}
+  }'
+```
+
 `data_agent` 只能执行单条只读 MySQL 查询。生产环境必须使用数据库只读账号，并可通过以下变量收紧服务端限制：
 
 - `DATA_AGENT_MAX_ROWS`：单次最多返回的记录数，默认 `500`，上限 `5000`。
@@ -204,6 +222,12 @@ Docker 镜像会在启动 API 前自动执行迁移。研究数据通过 Postgre
 
 - `GET /research/runs`：分页查询研究运行记录。
 - `GET /research/runs/{run_id}`：查看一次研究的来源、证据、主张和报告。
+
+信号查询接口：
+
+- `GET /signals`：分页查询信号，可按 `instrument_id` 或 `research_run_id` 筛选。
+- `GET /signals/{signal_id}`：查看信号及关联 Evidence、Source ID。
+- `GET /signals/runs/{signal_run_id}`：查看一次信号转换及其全部结果。
 
 ## 测试
 

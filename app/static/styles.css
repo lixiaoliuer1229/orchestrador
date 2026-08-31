@@ -133,6 +133,7 @@ button:disabled { cursor: wait; opacity: 0.65; }
 .result-meta dd { margin: 4px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .answer-text { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }
 .archive-link { margin-top: 16px; }
+.archive-link + .archive-link { margin-left: 8px; }
 
 .research-archive { margin-top: 18px; padding: 22px; }
 .research-archive .section-heading { align-items: flex-start; }
@@ -172,6 +173,17 @@ button:disabled { cursor: wait; opacity: 0.65; }
 .markdown-body h1 { font-size: 22px; }.markdown-body h2 { font-size: 18px; }.markdown-body h3 { font-size: 15px; }
 .markdown-body p, .markdown-body ul { margin: 0 0 10px; }
 .load-more { width: 100%; margin-top: 10px; }
+.filter-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.35fr) auto auto; gap: 10px; align-items: end; margin-bottom: 8px; }
+.filter-row label { margin-top: 0; }
+.filter-row .primary { width: auto; margin: 0; white-space: nowrap; }
+.signal-card-direction { font-weight: 700; }
+.direction-positive { color: var(--success); }
+.direction-negative { color: var(--danger); }
+.direction-neutral { color: var(--muted); }
+.signal-meter { height: 7px; margin: 10px 0 5px; overflow: hidden; border-radius: 999px; background: var(--surface-soft); }
+.signal-meter span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.boundary-note { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--primary); background: var(--surface-soft); color: var(--muted); font-size: 12px; line-height: 1.6; }
+.generate-signal { margin-top: 12px; }
 
 .image-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .image-gallery figure { margin: 0; }
@@ -199,4 +211,6 @@ th { color: var(--muted); }
   .result-meta { grid-template-columns: 1fr; }
   .action-row { flex-wrap: wrap; }
   .detail-stats { grid-template-columns: repeat(2, 1fr); }
+  .filter-row { grid-template-columns: 1fr; }
+  .filter-row .primary, .filter-row .secondary { width: 100%; }
 }

@@ -10,6 +10,13 @@ from app import main
 from app.main import GRAPHS, app
 from app.model_config import create_chat_model
 from app.research.models import ResearchRun
+from app.signals.models import (
+    Exchange,
+    Instrument,
+    Signal,
+    SignalCategory,
+    SignalDirection,
+)
 
 
 client = TestClient(app)
@@ -44,7 +51,12 @@ def test_runtime() -> None:
         "cheap-chat",
         "minimax-latest",
     ]
-    assert body["graphs"] == ["chatbot", "data_agent", "research_agent"]
+    assert body["graphs"] == [
+        "chatbot",
+        "data_agent",
+        "research_agent",
+        "signal_agent",
+    ]
 
 
 def test_graph_list() -> None:
@@ -52,7 +64,7 @@ def test_graph_list() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "graphs": ["chatbot", "data_agent", "research_agent"]
+        "graphs": ["chatbot", "data_agent", "research_agent", "signal_agent"]
     }
 
 
@@ -142,5 +154,55 @@ def test_missing_research_run(monkeypatch) -> None:
     response = client.get(
         "/research/runs/11111111-1111-1111-1111-111111111111"
     )
+
+    assert response.status_code == 404
+
+
+def test_signal_list(monkeypatch) -> None:
+    signal = Signal(
+        signal_id="signal-a",
+        signal_run_id="22222222-2222-2222-2222-222222222222",
+        research_run_id="11111111-1111-1111-1111-111111111111",
+        instrument=Instrument(
+            instrument_id="XSHG:600519",
+            symbol="600519",
+            exchange=Exchange.XSHG,
+            market="CN",
+            currency="CNY",
+            name="贵州茅台",
+        ),
+        category=SignalCategory.QUALITY,
+        direction=SignalDirection.POSITIVE,
+        strength=0.7,
+        signed_value=0.7,
+        confidence=0.8,
+        effective_at=datetime.now(timezone.utc),
+        expires_at=datetime(2026, 12, 31, tzinfo=timezone.utc),
+        rationale="test",
+        claim_ids=["claim-a"],
+    )
+
+    class FakeRepo:
+        def list(self, limit, offset, instrument_id, research_run_id):
+            assert (limit, offset, instrument_id) == (10, 0, "XSHG:600519")
+            assert research_run_id is None
+            return [signal]
+
+    monkeypatch.setattr(main, "signal_repo", FakeRepo())
+
+    response = client.get("/signals?limit=10&instrument_id=XSHG:600519")
+
+    assert response.status_code == 200
+    assert response.json()[0]["signal_id"] == "signal-a"
+
+
+def test_missing_signal(monkeypatch) -> None:
+    class FakeRepo:
+        def get_signal(self, signal_id):
+            return None
+
+    monkeypatch.setattr(main, "signal_repo", FakeRepo())
+
+    response = client.get("/signals/missing")
 
     assert response.status_code == 404

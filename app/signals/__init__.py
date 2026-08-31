@@ -1,0 +1,1 @@
+"""Investment signal domain package."""

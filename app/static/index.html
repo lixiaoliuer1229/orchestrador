@@ -63,7 +63,7 @@
           <button id="new-thread" type="button" class="secondary">新建</button>
         </div>
 
-        <label for="prompt">问题或分析要求</label>
+        <label id="prompt-label" for="prompt">问题或分析要求</label>
         <textarea id="prompt" name="prompt" rows="8" required placeholder="例如：查询最近一周的数据并总结主要变化"></textarea>
 
         <div class="action-row">
@@ -101,6 +101,7 @@
             </dl>
             <div id="answer-text" class="answer-text markdown-body"></div>
             <button id="open-current-run" type="button" class="secondary archive-link" hidden>查看完整研究档案</button>
+            <button id="open-current-signal-run" type="button" class="secondary archive-link" hidden>查看信号转换结果</button>
           </article>
 
           <section id="image-section" class="image-section" hidden>
@@ -133,6 +134,39 @@
         </aside>
         <section id="run-detail" class="run-detail" aria-live="polite">
           <div class="empty-state compact"><p>选择一条研究记录，查看完整证据链。</p></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="research-archive signal-workbench" aria-labelledby="signals-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">CANDIDATE SIGNALS</p>
+          <h2 id="signals-title">候选信号工作台</h2>
+          <p class="field-help">信号只用于研究与后续确定性验证，不能直接触发下单。</p>
+        </div>
+        <button id="refresh-signals" type="button" class="secondary">刷新信号</button>
+      </div>
+      <form id="signal-filters" class="filter-row">
+        <div>
+          <label for="instrument-filter">证券 ID</label>
+          <input id="instrument-filter" placeholder="例如 XSHG:600519">
+        </div>
+        <div>
+          <label for="research-run-filter">Research Run ID</label>
+          <input id="research-run-filter" placeholder="可选 UUID">
+        </div>
+        <button type="submit" class="primary">筛选</button>
+        <button id="clear-signal-filters" type="button" class="secondary">清除</button>
+      </form>
+      <p id="signal-error" class="error" role="alert"></p>
+      <div class="archive-layout">
+        <aside class="run-list-panel" aria-label="候选信号列表">
+          <div id="signal-list" class="run-list"></div>
+          <button id="load-more-signals" type="button" class="secondary load-more" hidden>加载更多</button>
+        </aside>
+        <section id="signal-detail" class="run-detail" aria-live="polite">
+          <div class="empty-state compact"><p>选择一个候选信号，查看完整证据血缘。</p></div>
         </section>
       </div>
     </section>
