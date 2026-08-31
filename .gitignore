@@ -41,6 +41,9 @@ logs/
 # ===== IDE =====
 .idea/
 .vscode/
+# Keep shared PyCharm run configurations even when a global rule ignores *.xml.
+!.run/
+!.run/*.run.xml
 *.swp
 .DS_Store
 

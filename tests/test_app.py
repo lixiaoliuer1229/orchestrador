@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
 from app import main
+from app.graphs.chat import TOOLS as CHAT_TOOLS
 from app.main import GRAPHS, app
 from app.model_config import create_chat_model
 from app.research.models import ResearchRun
@@ -20,6 +21,10 @@ from app.signals.models import (
 
 
 client = TestClient(app)
+
+
+def test_chatbot_has_no_external_tools() -> None:
+    assert CHAT_TOOLS == []
 
 
 def test_ok() -> None:
