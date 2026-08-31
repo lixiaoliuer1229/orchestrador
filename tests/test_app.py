@@ -37,6 +37,8 @@ def test_frontend() -> None:
     assert "量化研究控制台" in response.text
     assert "可追溯研究档案" in response.text
     assert "停止等待" in response.text
+    assert "候选信号工作台" in response.text
+    assert "不能直接触发下单" in response.text
 
 
 def test_runtime() -> None:

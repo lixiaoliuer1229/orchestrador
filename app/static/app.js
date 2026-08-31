@@ -306,6 +306,14 @@ function renderRunDetail(detail) {
     box.append(strong, span); stats.append(box);
   });
   header.append(title, meta, stats);
+  if (run.status === "completed") {
+    const generate = document.createElement("button");
+    generate.type = "button";
+    generate.className = "primary generate-signal";
+    generate.textContent = "从本次研究生成候选信号";
+    generate.addEventListener("click", () => prepareSignalGeneration(run.run_id));
+    header.append(generate);
+  }
   elements.runDetail.append(header);
 
   if (run.report) {
@@ -368,12 +376,205 @@ function focusReference(reference) {
   window.setTimeout(() => target.classList.remove("is-highlighted"), 1800);
 }
 
+function prepareSignalGeneration(runId) {
+  elements.graphSelect.value = "signal_agent";
+  updateGraphGuidance();
+  elements.prompt.value = runId;
+  elements.form.scrollIntoView({behavior: "smooth", block: "start"});
+  elements.submit.focus({preventScroll: true});
+}
+
+function directionLabel(direction) {
+  return {positive: "正向", negative: "负向", neutral: "中性"}[direction] || direction;
+}
+
+function makeSignalItem(signal) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "run-item";
+  button.dataset.signalId = signal.signal_id;
+  const title = document.createElement("span");
+  title.className = "run-item-title";
+  title.textContent = `${signal.instrument.name || signal.instrument.symbol} · ${signal.category}`;
+  const meta = document.createElement("span");
+  meta.className = "run-item-meta";
+  const direction = document.createElement("span");
+  direction.className = `signal-card-direction direction-${signal.direction}`;
+  direction.textContent = directionLabel(signal.direction);
+  meta.append(direction, document.createTextNode(signal.instrument.instrument_id), document.createTextNode(`置信度 ${Math.round(signal.confidence * 100)}%`));
+  button.append(title, meta);
+  button.addEventListener("click", () => loadSignalDetail(signal.signal_id));
+  return button;
+}
+
+async function loadSignals({reset = false} = {}) {
+  if (reset) {
+    state.signalOffset = 0;
+    elements.signalList.replaceChildren();
+  }
+  elements.signalError.textContent = "";
+  elements.refreshSignals.disabled = true;
+  elements.loadMoreSignals.disabled = true;
+  const params = new URLSearchParams({limit: state.signalPageSize, offset: state.signalOffset});
+  if (elements.instrumentFilter.value.trim()) params.set("instrument_id", elements.instrumentFilter.value.trim());
+  if (elements.researchRunFilter.value.trim()) params.set("research_run_id", elements.researchRunFilter.value.trim());
+  try {
+    const response = await fetch(`/signals?${params}`);
+    const signals = await response.json();
+    if (!response.ok) throw new Error(signals.detail || "候选信号读取失败");
+    signals.forEach((signal) => elements.signalList.append(makeSignalItem(signal)));
+    state.signalOffset += signals.length;
+    elements.loadMoreSignals.hidden = signals.length < state.signalPageSize;
+    if (!elements.signalList.children.length) {
+      const empty = document.createElement("p");
+      empty.className = "field-help";
+      empty.textContent = "当前筛选条件下暂无候选信号。";
+      elements.signalList.append(empty);
+    }
+  } catch (error) {
+    elements.signalError.textContent = `${error.message}；研究功能仍可正常使用。`;
+    elements.loadMoreSignals.hidden = true;
+  } finally {
+    elements.refreshSignals.disabled = false;
+    elements.loadMoreSignals.disabled = false;
+  }
+}
+
+function signalSummary(signal) {
+  const wrapper = document.createElement("div");
+  const heading = document.createElement("div");
+  heading.className = "record-heading";
+  const name = document.createElement("strong");
+  name.textContent = `${signal.instrument.name || signal.instrument.symbol}（${signal.instrument.instrument_id}）`;
+  const direction = document.createElement("span");
+  direction.className = `signal-card-direction direction-${signal.direction}`;
+  direction.textContent = directionLabel(signal.direction);
+  heading.append(name, direction);
+  const meter = document.createElement("div");
+  meter.className = "signal-meter";
+  const fill = document.createElement("span");
+  fill.style.width = `${Math.round(signal.strength * 100)}%`;
+  meter.append(fill);
+  const meta = document.createElement("p");
+  meta.className = "record-meta";
+  meta.textContent = `${signal.category} · 强度 ${Math.round(signal.strength * 100)}% · 置信度 ${Math.round(signal.confidence * 100)}% · ${formatDate(signal.effective_at)} 至 ${formatDate(signal.expires_at)}`;
+  const rationale = document.createElement("p");
+  rationale.textContent = signal.rationale;
+  wrapper.append(heading, meter, meta, rationale);
+  return wrapper;
+}
+
+function renderSignalInvocation(payload) {
+  elements.answer.replaceChildren();
+  const signals = Array.isArray(payload.signals) ? payload.signals : [];
+  const summary = document.createElement("p");
+  summary.textContent = signals.length
+    ? `已从研究档案生成 ${signals.length} 个候选信号。`
+    : "本次研究没有形成满足证据要求的候选信号。";
+  elements.answer.append(summary);
+  signals.forEach((signal) => {
+    const card = document.createElement("article");
+    card.className = "record-card";
+    card.append(signalSummary(signal));
+    elements.answer.append(card);
+  });
+  const note = document.createElement("p");
+  note.className = "boundary-note";
+  note.textContent = "候选信号不能直接触发下单，仍需经过量化验证、组合和独立风控。";
+  elements.answer.append(note);
+}
+
+async function openResearchReference(runId, reference) {
+  await loadRunDetail(runId);
+  focusReference(reference);
+}
+
+function renderSignalDetail(detail) {
+  const {signal, evidence_ids: evidenceIds = [], source_ids: sourceIds = []} = detail;
+  elements.signalList.querySelectorAll(".run-item").forEach((item) => item.classList.toggle("is-active", item.dataset.signalId === signal.signal_id));
+  elements.signalDetail.replaceChildren();
+  const header = document.createElement("header");
+  header.className = "detail-header";
+  const title = document.createElement("h3");
+  title.textContent = `${signal.instrument.name || signal.instrument.symbol}候选信号`;
+  header.append(title, signalSummary(signal));
+  const note = document.createElement("p");
+  note.className = "boundary-note";
+  note.textContent = "候选信号不是订单，也不代表仓位建议；必须经过后续量化验证、组合计算、独立风控和人工审批。";
+  header.append(note);
+  elements.signalDetail.append(header);
+
+  const lineage = detailSection("证据血缘");
+  [["Research Run", signal.research_run_id, null], ...signal.claim_ids.map((id) => ["Claim", id, id]), ...evidenceIds.map((id) => ["Evidence", id, id]), ...sourceIds.map((id) => ["Source", id, id])].forEach(([type, id, reference]) => {
+    const card = recordCard(`lineage-${id}`, id, type);
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "text-button";
+    open.textContent = reference ? "在研究档案中定位" : "打开研究档案";
+    open.addEventListener("click", () => openResearchReference(signal.research_run_id, reference));
+    card.append(open);
+    lineage.list.append(card);
+  });
+  elements.signalDetail.append(lineage.section);
+}
+
+async function loadSignalDetail(signalId) {
+  elements.signalError.textContent = "";
+  elements.signalDetail.setAttribute("aria-busy", "true");
+  try {
+    const response = await fetch(`/signals/${encodeURIComponent(signalId)}`);
+    const detail = await response.json();
+    if (!response.ok) throw new Error(detail.detail || "信号详情读取失败");
+    renderSignalDetail(detail);
+    elements.signalDetail.scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (error) {
+    elements.signalError.textContent = error.message;
+  } finally {
+    elements.signalDetail.removeAttribute("aria-busy");
+  }
+}
+
+async function loadSignalRun(signalRunId) {
+  elements.signalError.textContent = "";
+  try {
+    const response = await fetch(`/signals/runs/${encodeURIComponent(signalRunId)}`);
+    const detail = await response.json();
+    if (!response.ok) throw new Error(detail.detail || "信号转换运行读取失败");
+    state.currentSignalRunId = signalRunId;
+    elements.signalDetail.replaceChildren();
+    const header = document.createElement("header");
+    header.className = "detail-header";
+    const title = document.createElement("h3");
+    title.textContent = "信号转换运行";
+    const meta = document.createElement("div");
+    meta.className = "run-item-meta";
+    meta.append(badge(detail.run.status), document.createTextNode(`${detail.run.model} · ${detail.run.graph_version}`), document.createTextNode(formatDate(detail.run.started_at)));
+    header.append(title, meta);
+    if (detail.run.error) header.append(recordCard("signal-run-error", detail.run.error, "运行错误", "failed"));
+    elements.signalDetail.append(header);
+    const section = detailSection(`生成信号（${detail.signals.length}）`);
+    detail.signals.forEach((signal) => {
+      const card = recordCard(signal.signal_id, signal.rationale, `${signal.instrument.instrument_id} · ${directionLabel(signal.direction)} · 置信度 ${Math.round(signal.confidence * 100)}%`);
+      const open = document.createElement("button");
+      open.type = "button"; open.className = "text-button"; open.textContent = "查看完整血缘";
+      open.addEventListener("click", () => loadSignalDetail(signal.signal_id));
+      card.append(open); section.list.append(card);
+    });
+    elements.signalDetail.append(section.section);
+    document.querySelector(".signal-workbench").scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (error) {
+    elements.signalError.textContent = error.message;
+  }
+}
+
 async function invoke(event) {
   event.preventDefault();
   elements.error.textContent = "";
   elements.submit.disabled = true;
   elements.submit.textContent = "运行中…";
   elements.cancel.hidden = false;
+  elements.openCurrentRun.hidden = true;
+  elements.openCurrentSignalRun.hidden = true;
   const startedAt = performance.now();
   state.controller = new AbortController();
   const updateElapsed = () => { elements.elapsed.textContent = `已运行 ${((performance.now() - startedAt) / 1000).toFixed(1)} 秒`; };
@@ -399,17 +600,21 @@ async function invoke(event) {
     elements.empty.hidden = true;
     elements.content.hidden = false;
     const answer = latestAnswer(payload);
-    if (elements.graphSelect.value === "research_agent") renderMarkdown(elements.answer, answer);
+    if (graphName === "research_agent") renderMarkdown(elements.answer, answer);
+    else if (graphName === "signal_agent") renderSignalInvocation(payload);
     else elements.answer.textContent = answer;
     elements.raw.textContent = JSON.stringify(payload, null, 2);
     elements.resultGraph.textContent = graphProfile(elements.graphSelect.value).label;
     elements.resultModel.textContent = elements.modelSelect.value;
-    elements.resultThread.textContent = elements.threadId.value.trim();
+    elements.resultThread.textContent = graphName === "signal_agent" ? "不适用" : elements.threadId.value.trim();
     elements.resultFinished.textContent = new Intl.DateTimeFormat("zh-CN", {dateStyle: "medium", timeStyle: "medium"}).format(new Date());
     renderImages(imagePaths(payload));
     elements.openCurrentRun.hidden = !payload.run_id;
     elements.openCurrentRun.dataset.runId = payload.run_id || "";
+    elements.openCurrentSignalRun.hidden = !payload.signal_run_id;
+    elements.openCurrentSignalRun.dataset.signalRunId = payload.signal_run_id || "";
     if (payload.run_id) await loadResearchRuns({reset: true});
+    if (payload.signal_run_id) await loadSignals({reset: true});
     elements.elapsed.textContent = `${((performance.now() - startedAt) / 1000).toFixed(1)} 秒完成`;
   } catch (error) {
     if (error.name === "AbortError") {
@@ -438,6 +643,15 @@ elements.retryRuntime.addEventListener("click", loadRuntime);
 elements.refreshRuns.addEventListener("click", () => loadResearchRuns({reset: true}));
 elements.loadMoreRuns.addEventListener("click", () => loadResearchRuns());
 elements.openCurrentRun.addEventListener("click", () => loadRunDetail(elements.openCurrentRun.dataset.runId));
+elements.openCurrentSignalRun.addEventListener("click", () => loadSignalRun(elements.openCurrentSignalRun.dataset.signalRunId));
+elements.refreshSignals.addEventListener("click", () => loadSignals({reset: true}));
+elements.loadMoreSignals.addEventListener("click", () => loadSignals());
+elements.signalFilters.addEventListener("submit", (event) => { event.preventDefault(); loadSignals({reset: true}); });
+elements.clearSignalFilters.addEventListener("click", () => {
+  elements.instrumentFilter.value = "";
+  elements.researchRunFilter.value = "";
+  loadSignals({reset: true});
+});
 document.addEventListener("click", (event) => {
   const reference = event.target.closest("[data-reference]")?.dataset.reference;
   if (reference) focusReference(reference);
@@ -458,3 +672,4 @@ elements.logout.addEventListener("click", async () => {
 loadIdentity();
 loadRuntime();
 loadResearchRuns({reset: true});
+loadSignals({reset: true});
