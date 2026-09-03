@@ -7,22 +7,25 @@ import re
 from datetime import timedelta
 
 from app.research.models import Claim, ResearchRun, VerificationStatus
-from app.signals.models import (
+from app.market.models import (
     Currency,
     Exchange,
     Instrument,
     Market,
+)
+from app.signals.models import (
     Signal,
     SignalDirection,
     SignalExtraction,
 )
 
-
 _CN_EXCHANGES = {Exchange.XSHG, Exchange.XSHE, Exchange.BSE}
 _US_EXCHANGES = {Exchange.XNYS, Exchange.XNAS, Exchange.XASE}
 
 
-def normalize_instrument(symbol: str, exchange: Exchange, name: str | None) -> Instrument:
+def normalize_instrument(
+    symbol: str, exchange: Exchange, name: str | None
+) -> Instrument:
     normalized = symbol.strip().upper()
     if exchange in _CN_EXCHANGES:
         if not re.fullmatch(r"\d{6}", normalized):
@@ -40,6 +43,18 @@ def normalize_instrument(symbol: str, exchange: Exchange, name: str | None) -> I
         exchange=exchange,
         market=market,
         currency=currency,
+        qlib_code=(
+            f"SH{normalized}"
+            if exchange == Exchange.XSHG
+            else (
+                f"SZ{normalized}"
+                if exchange == Exchange.XSHE
+                else f"BJ{normalized}" if exchange == Exchange.BSE else normalized
+            )
+        ),
+        timezone="Asia/Shanghai" if market == Market.CN else "America/New_York",
+        lot_size=100 if market == Market.CN else 1,
+        settlement_days=1 if market == Market.CN else 0,
         name=name.strip() if name else None,
     )
 
@@ -79,7 +94,11 @@ def validate_signals(
             continue
         claim_confidence = min(
             claim.confidence
-            * (0.75 if claim.verification_status == VerificationStatus.PARTIALLY_SUPPORTED else 1)
+            * (
+                0.75
+                if claim.verification_status == VerificationStatus.PARTIALLY_SUPPORTED
+                else 1
+            )
             for claim in (eligible[claim_id] for claim_id in requested)
         )
         confidence = min(draft.confidence, claim_confidence)

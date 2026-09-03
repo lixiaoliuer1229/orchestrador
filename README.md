@@ -133,6 +133,7 @@ app/
 
 app/research/            # 研究领域模型、证据校验和 Repository
 app/signals/             # 证券、信号模型、校验和 Repository
+app/market/              # 市场数据模型、Provider、质量规则和 Repository
 migrations/              # Alembic 数据库迁移
 
 tests/                   # API、Graph 与安全回归测试
@@ -228,6 +229,40 @@ Docker 镜像会在启动 API 前自动执行迁移。研究数据通过 Postgre
 - `GET /signals`：分页查询信号，可按 `instrument_id` 或 `research_run_id` 筛选。
 - `GET /signals/{signal_id}`：查看信号及关联 Evidence、Source ID。
 - `GET /signals/runs/{signal_run_id}`：查看一次信号转换及其全部结果。
+
+### 市场数据基础层
+
+市场数据层采用供应商无关的 `MarketDataProvider` 协议，当前已定义并持久化证券主数据、交易日历、日频 OHLCV、复权因子、公司行为、A 股 ST/停牌及可买卖状态、财务事实、导入批次和质量问题。A 股证券使用 `XSHG/XSHE/BSE`，并保存对应的 Qlib 代码；数据结构同时支持美股交易所。
+
+所有批量数据关联 `ingestion_run_id`。日线会检查 OHLC 关系、休市日数据、停牌成交和涨跌停边界；财务事实以 `announced_at` 控制时点可见性；不合格记录写入质量问题表，但不会进入正式数据表。目前仅完成领域和存储边界，尚未绑定真实行情供应商。
+
+开发阶段可以通过确定性的 `MockMarketDataProvider` 填充合成 A 股数据。默认生成 2025 年 5 只模拟证券，并故意包含一条错误 OHLC 用于验证质量门控。所有证券名称和元数据均明确标记为模拟数据，不能用于评价真实策略收益。
+
+只生成并查看数据量，不连接数据库：
+
+```bash
+python -m app.market.seed --dry-run
+```
+
+执行迁移后写入 PostgreSQL：
+
+```bash
+python -m alembic upgrade head
+python -m app.market.seed
+```
+
+可以通过 `--start YYYY-MM-DD --end YYYY-MM-DD` 调整范围；使用 `--no-invalid` 可以不生成故意构造的错误记录。重复执行会通过主键 upsert 更新同一份合成数据，不会产生重复行情。
+
+市场数据查询接口：
+
+- `GET /market/instruments`：查询证券主数据，可按市场筛选。
+- `GET /market/calendar`：查询指定交易所的交易日历。
+- `GET /market/bars/{instrument_id}`：查询日频行情。
+- `GET /market/actions/{instrument_id}`：查询公司行为。
+- `GET /market/status/{instrument_id}`：查询停牌、ST 和可交易状态。
+- `GET /market/financials/{instrument_id}`：按 `as_of` 时点查询当时已公告的财务事实。
+- `GET /market/ingestions`：查询数据导入批次。
+- `GET /market/ingestions/{run_id}/issues`：查询批次质量问题。
 
 ## 测试
 

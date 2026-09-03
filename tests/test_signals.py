@@ -22,7 +22,6 @@ from app.signals.models import (
 )
 from app.signals.validate import normalize_instrument, validate_signals
 
-
 NOW = datetime(2026, 8, 31, tzinfo=timezone.utc)
 RESEARCH_RUN_ID = "11111111-1111-1111-1111-111111111111"
 SIGNAL_RUN_ID = "22222222-2222-2222-2222-222222222222"
@@ -78,9 +77,12 @@ def test_normalize_instrument_supports_cn_and_us():
     assert cn.instrument_id == "XSHG:600519"
     assert cn.market.value == "CN"
     assert cn.currency.value == "CNY"
+    assert cn.qlib_code == "SH600519"
+    assert cn.lot_size == 100
     assert us.instrument_id == "XNAS:AAPL"
     assert us.market.value == "US"
     assert us.currency.value == "USD"
+    assert us.qlib_code == "AAPL"
 
 
 def test_normalize_instrument_rejects_invalid_symbol():

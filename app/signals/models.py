@@ -7,28 +7,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
-
-class Market(StrEnum):
-    CN = "CN"
-    US = "US"
-
-
-class Exchange(StrEnum):
-    XSHG = "XSHG"
-    XSHE = "XSHE"
-    BSE = "BSE"
-    XNYS = "XNYS"
-    XNAS = "XNAS"
-    XASE = "XASE"
-
-
-class AssetType(StrEnum):
-    EQUITY = "equity"
-
-
-class Currency(StrEnum):
-    CNY = "CNY"
-    USD = "USD"
+from app.market.models import AssetType, Currency, Exchange, Instrument, Market
 
 
 class SignalCategory(StrEnum):
@@ -58,16 +37,6 @@ class InstrumentDraft(BaseModel):
     symbol: str = Field(min_length=1, max_length=32)
     exchange: Exchange
     name: str | None = Field(default=None, max_length=256)
-
-
-class Instrument(BaseModel):
-    instrument_id: str
-    symbol: str
-    exchange: Exchange
-    market: Market
-    currency: Currency
-    asset_type: AssetType = AssetType.EQUITY
-    name: str | None = None
 
 
 class SignalDraft(BaseModel):

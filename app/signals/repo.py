@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Protocol
 from uuid import UUID
 
+from psycopg.types.json import Jsonb
+
 from app.db import connect
 from app.signals.models import (
     Instrument,
@@ -58,10 +60,16 @@ class PostgresSignalRepo:
                 cursor.execute(
                     """
                     INSERT INTO instruments(
-                        instrument_id, symbol, exchange, market, currency, asset_type, name
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        instrument_id, symbol, exchange, market, currency, asset_type,
+                        name, qlib_code, timezone, lot_size, settlement_days, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (instrument_id) DO UPDATE SET
-                        name = COALESCE(EXCLUDED.name, instruments.name)
+                        name = COALESCE(EXCLUDED.name, instruments.name),
+                        qlib_code = COALESCE(EXCLUDED.qlib_code, instruments.qlib_code),
+                        timezone = EXCLUDED.timezone,
+                        lot_size = EXCLUDED.lot_size,
+                        settlement_days = EXCLUDED.settlement_days,
+                        metadata = instruments.metadata || EXCLUDED.metadata
                     """,
                     (
                         instrument.instrument_id,
@@ -71,6 +79,11 @@ class PostgresSignalRepo:
                         instrument.currency.value,
                         instrument.asset_type.value,
                         instrument.name,
+                        instrument.qlib_code,
+                        instrument.timezone,
+                        instrument.lot_size,
+                        instrument.settlement_days,
+                        Jsonb(instrument.metadata),
                     ),
                 )
                 cursor.execute(
@@ -141,9 +154,7 @@ class PostgresSignalRepo:
 
     def get_signal(self, signal_id: str) -> SignalDetail | None:
         with connect() as connection, connection.cursor() as cursor:
-            signals = self._signals(
-                cursor, "WHERE s.signal_id = %s", (signal_id,)
-            )
+            signals = self._signals(cursor, "WHERE s.signal_id = %s", (signal_id,))
             if not signals:
                 return None
             cursor.execute(

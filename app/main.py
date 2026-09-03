@@ -8,6 +8,7 @@ import os
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,19 @@ from app.auth import (
     set_user_active,
 )
 from app.model_config import SUPPORTED_MODELS, configured_model
+from app.market.models import (
+    CorporateAction,
+    DailyBar,
+    Exchange,
+    FinancialFact,
+    IngestionRun,
+    Instrument,
+    InstrumentStatus,
+    Market,
+    QualityIssue,
+    TradingDay,
+)
+from app.market.repo import PostgresMarketRepo
 from app.research.models import ResearchRun, RunDetail
 from app.research.repo import PostgresResearchRepo
 from app.graphs.chat import create_graph as create_chatbot_graph
@@ -52,6 +66,7 @@ logger = logging.getLogger(__name__)
 login_attempts: dict[str, deque[float]] = defaultdict(deque)
 research_repo = PostgresResearchRepo()
 signal_repo = PostgresSignalRepo()
+market_repo = PostgresMarketRepo()
 
 GRAPHS = {
     "chatbot": chatbot_graph,
@@ -310,6 +325,91 @@ async def get_signal(signal_id: str):
     if result is None:
         raise HTTPException(status_code=404, detail="Signal not found")
     return result
+
+
+def _validate_dates(start: date, end: date) -> None:
+    if start > end:
+        raise HTTPException(status_code=422, detail="start must not be after end")
+
+
+@app.get("/market/instruments", response_model=list[Instrument], tags=["market"])
+async def list_market_instruments(
+    market: Market | None = None, limit: int = 100, offset: int = 0
+):
+    if limit < 1 or limit > 1000 or offset < 0:
+        raise HTTPException(status_code=422, detail="Invalid pagination")
+    return await asyncio.to_thread(market_repo.list_instruments, market, limit, offset)
+
+
+@app.get("/market/calendar", response_model=list[TradingDay], tags=["market"])
+async def get_market_calendar(exchange: Exchange, start: date, end: date):
+    _validate_dates(start, end)
+    return await asyncio.to_thread(market_repo.calendar, exchange.value, start, end)
+
+
+@app.get("/market/bars/{instrument_id}", response_model=list[DailyBar], tags=["market"])
+async def get_daily_bars(instrument_id: str, start: date, end: date):
+    _validate_dates(start, end)
+    return await asyncio.to_thread(market_repo.bars, instrument_id, start, end)
+
+
+@app.get(
+    "/market/actions/{instrument_id}",
+    response_model=list[CorporateAction],
+    tags=["market"],
+)
+async def get_corporate_actions(instrument_id: str, start: date, end: date):
+    _validate_dates(start, end)
+    return await asyncio.to_thread(market_repo.actions, instrument_id, start, end)
+
+
+@app.get(
+    "/market/status/{instrument_id}",
+    response_model=list[InstrumentStatus],
+    tags=["market"],
+)
+async def get_instrument_status(instrument_id: str, start: date, end: date):
+    _validate_dates(start, end)
+    return await asyncio.to_thread(market_repo.statuses, instrument_id, start, end)
+
+
+@app.get(
+    "/market/financials/{instrument_id}",
+    response_model=list[FinancialFact],
+    tags=["market"],
+)
+async def get_financial_facts(
+    instrument_id: str, as_of: datetime, metric: str | None = None
+):
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
+        raise HTTPException(status_code=422, detail="as_of must include a timezone")
+    return await asyncio.to_thread(
+        market_repo.financials, instrument_id, as_of, metric
+    )
+
+
+@app.get(
+    "/market/ingestions", response_model=list[IngestionRun], tags=["market"]
+)
+async def list_market_ingestions(limit: int = 20, offset: int = 0):
+    if limit < 1 or limit > 100 or offset < 0:
+        raise HTTPException(status_code=422, detail="Invalid pagination")
+    return await asyncio.to_thread(market_repo.list_ingestions, limit, offset)
+
+
+@app.get(
+    "/market/ingestions/{run_id}/issues",
+    response_model=list[QualityIssue],
+    tags=["market"],
+)
+async def list_market_quality_issues(
+    run_id: UUID, limit: int = 100, offset: int = 0
+):
+    if limit < 1 or limit > 1000 or offset < 0:
+        raise HTTPException(status_code=422, detail="Invalid pagination")
+    return await asyncio.to_thread(
+        market_repo.list_issues, str(run_id), limit, offset
+    )
 
 
 @app.get("/runtime", tags=["runtime"])
