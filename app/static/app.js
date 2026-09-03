@@ -1,4 +1,4 @@
-const state = {graphs: [], controller: null, timer: null, runOffset: 0, runPageSize: 20, currentRunId: null, signalOffset: 0, signalPageSize: 20, currentSignalRunId: null};
+const state = {graphs: [], controller: null, timer: null, runOffset: 0, runPageSize: 20, currentRunId: null, signalOffset: 0, signalPageSize: 20, currentSignalRunId: null, instrumentOffset: 0, instrumentPageSize: 100, selectedInstrument: null, ingestionOffset: 0, ingestionPageSize: 20};
 
 const graphProfiles = {
   chatbot: {label: "通用研究助手", description: "用于研究讨论、信息梳理和问题分析；结论不构成交易指令。", placeholder: "例如：梳理这项研究假设需要哪些证据，并列出主要风险"},
@@ -25,6 +25,10 @@ const elements = {
   signalFilters: byId("signal-filters"), instrumentFilter: byId("instrument-filter"), researchRunFilter: byId("research-run-filter"),
   clearSignalFilters: byId("clear-signal-filters"), signalError: byId("signal-error"), signalList: byId("signal-list"),
   signalDetail: byId("signal-detail"), loadMoreSignals: byId("load-more-signals"),
+  refreshInstruments: byId("refresh-instruments"), marketFilter: byId("market-filter"), marketStart: byId("market-start"),
+  marketEnd: byId("market-end"), financialAsOf: byId("financial-as-of"), marketError: byId("market-error"),
+  instrumentList: byId("instrument-list"), loadMoreInstruments: byId("load-more-instruments"), instrumentDetail: byId("instrument-detail"),
+  refreshIngestions: byId("refresh-ingestions"), ingestionList: byId("ingestion-list"), loadMoreIngestions: byId("load-more-ingestions"), qualityDetail: byId("quality-detail"),
 };
 
 async function loadIdentity() {
@@ -498,6 +502,12 @@ function renderSignalDetail(detail) {
   const title = document.createElement("h3");
   title.textContent = `${signal.instrument.name || signal.instrument.symbol}候选信号`;
   header.append(title, signalSummary(signal));
+  const marketButton = document.createElement("button");
+  marketButton.type = "button";
+  marketButton.className = "secondary";
+  marketButton.textContent = "查看证券市场数据";
+  marketButton.addEventListener("click", () => openMarketInstrument(signal.instrument.instrument_id));
+  header.append(marketButton);
   const note = document.createElement("p");
   note.className = "boundary-note";
   note.textContent = "候选信号不是订单，也不代表仓位建议；必须经过后续量化验证、组合计算、独立风控和人工审批。";
@@ -516,6 +526,17 @@ function renderSignalDetail(detail) {
     lineage.list.append(card);
   });
   elements.signalDetail.append(lineage.section);
+}
+
+async function openMarketInstrument(instrumentId) {
+  elements.marketError.textContent = "";
+  try {
+    const instruments = await apiJson("/market/instruments?limit=1000&offset=0");
+    const instrument = instruments.find((item) => item.instrument_id === instrumentId);
+    if (!instrument) throw new Error(`市场主数据中未找到 ${instrumentId}`);
+    renderInstrumentDetail(instrument);
+    document.querySelector(".market-workbench").scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (error) { elements.marketError.textContent = error.message; }
 }
 
 async function loadSignalDetail(signalId) {
@@ -565,6 +586,185 @@ async function loadSignalRun(signalRunId) {
   } catch (error) {
     elements.signalError.textContent = error.message;
   }
+}
+
+function localDateValue(date) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function initializeMarketDates() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 30);
+  elements.marketStart.value = localDateValue(start);
+  elements.marketEnd.value = localDateValue(end);
+  elements.financialAsOf.value = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+async function apiJson(url) {
+  const response = await fetch(url);
+  const body = await response.json();
+  if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : `请求失败：${response.status}`);
+  return body;
+}
+
+function makeInstrumentItem(instrument) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "run-item";
+  button.dataset.instrumentId = instrument.instrument_id;
+  const title = document.createElement("span");
+  title.className = "run-item-title";
+  title.textContent = `${instrument.name || instrument.symbol} · ${instrument.symbol}`;
+  const meta = document.createElement("span");
+  meta.className = "run-item-meta";
+  meta.append(document.createTextNode(`${instrument.market} · ${instrument.exchange} · ${instrument.asset_type}`), badge(instrument.state));
+  if (instrument.metadata?.synthetic) {
+    const synthetic = document.createElement("span");
+    synthetic.className = "badge synthetic-badge";
+    synthetic.textContent = "模拟数据";
+    meta.append(synthetic);
+  }
+  button.append(title, meta);
+  button.addEventListener("click", () => renderInstrumentDetail(instrument));
+  return button;
+}
+
+async function loadInstruments({reset = false} = {}) {
+  if (reset) { state.instrumentOffset = 0; elements.instrumentList.replaceChildren(); }
+  elements.marketError.textContent = "";
+  const params = new URLSearchParams({limit: state.instrumentPageSize, offset: state.instrumentOffset});
+  if (elements.marketFilter.value) params.set("market", elements.marketFilter.value);
+  try {
+    const instruments = await apiJson(`/market/instruments?${params}`);
+    instruments.forEach((item) => elements.instrumentList.append(makeInstrumentItem(item)));
+    state.instrumentOffset += instruments.length;
+    elements.loadMoreInstruments.hidden = instruments.length < state.instrumentPageSize;
+    if (!elements.instrumentList.children.length) {
+      const empty = document.createElement("p"); empty.className = "field-help"; empty.textContent = "当前市场暂无证券数据。";
+      elements.instrumentList.append(empty);
+    }
+  } catch (error) {
+    elements.marketError.textContent = `${error.message}；其他工作台仍可正常使用。`;
+  }
+}
+
+function makeTable(rows, columns) {
+  const wrap = document.createElement("div");
+  wrap.className = "data-table";
+  if (!rows.length) { wrap.textContent = "所选条件下暂无数据。"; return wrap; }
+  const table = document.createElement("table");
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  columns.forEach(([, label]) => { const th = document.createElement("th"); th.textContent = label; headRow.append(th); });
+  head.append(headRow);
+  const body = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    columns.forEach(([key]) => { const td = document.createElement("td"); const value = row[key]; td.textContent = typeof value === "boolean" ? (value ? "是" : "否") : (value ?? "—"); tr.append(td); });
+    body.append(tr);
+  });
+  table.append(head, body); wrap.append(table); return wrap;
+}
+
+function makePriceChart(rows) {
+  const values = rows.map((row) => Number(row.close)).filter(Number.isFinite);
+  if (values.length < 2) return null;
+  const min = Math.min(...values); const max = Math.max(...values); const range = max - min || 1;
+  const points = values.map((value, index) => `${(index / (values.length - 1)) * 100},${95 - ((value - min) / range) * 90}`).join(" ");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 100 100"); svg.setAttribute("preserveAspectRatio", "none"); svg.classList.add("price-chart");
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline"); line.setAttribute("points", points); svg.append(line);
+  return svg;
+}
+
+async function loadInstrumentDataset(kind) {
+  const instrument = state.selectedInstrument;
+  if (!instrument) return;
+  elements.marketError.textContent = "";
+  const target = byId("market-data-content");
+  target.textContent = "正在读取…";
+  const id = encodeURIComponent(instrument.instrument_id);
+  const range = `start=${elements.marketStart.value}&end=${elements.marketEnd.value}`;
+  try {
+    let rows; let columns;
+    if (kind === "bars") {
+      rows = await apiJson(`/market/bars/${id}?${range}`);
+      columns = [["trade_date", "日期"], ["open", "开"], ["high", "高"], ["low", "低"], ["close", "收"], ["volume", "成交量"], ["suspended", "停牌"], ["provider", "来源"]];
+    } else if (kind === "actions") {
+      rows = await apiJson(`/market/actions/${id}?${range}`);
+      columns = [["ex_date", "除权日"], ["action_type", "类型"], ["cash_amount", "现金"], ["ratio", "比例"], ["provider", "来源"]];
+    } else if (kind === "status") {
+      rows = await apiJson(`/market/status/${id}?${range}`);
+      columns = [["trade_date", "日期"], ["suspended", "停牌"], ["is_st", "ST"], ["can_buy", "可买"], ["can_sell", "可卖"], ["reason", "原因"]];
+    } else if (kind === "financials") {
+      const asOf = new Date(elements.financialAsOf.value);
+      if (Number.isNaN(asOf.getTime())) throw new Error("请选择有效的财务数据时点");
+      rows = await apiJson(`/market/financials/${id}?as_of=${encodeURIComponent(asOf.toISOString())}`);
+      columns = [["report_period", "报告期"], ["metric", "指标"], ["value", "数值"], ["unit", "单位"], ["announced_at", "公告时间"], ["restatement", "重述版本"]];
+    } else {
+      rows = await apiJson(`/market/calendar?exchange=${instrument.exchange}&${range}`);
+      columns = [["trade_date", "日期"], ["is_open", "开市"], ["opens_at", "开盘"], ["closes_at", "收盘"], ["note", "说明"]];
+    }
+    target.replaceChildren();
+    if (kind === "bars") { const chart = makePriceChart(rows); if (chart) target.append(chart); }
+    target.append(makeTable(rows, columns));
+    byId("market-data-tabs").querySelectorAll("button").forEach((button) => button.classList.toggle("is-active", button.dataset.kind === kind));
+  } catch (error) {
+    target.textContent = "";
+    elements.marketError.textContent = error.message;
+  }
+}
+
+function renderInstrumentDetail(instrument) {
+  state.selectedInstrument = instrument;
+  elements.instrumentList.querySelectorAll(".run-item").forEach((item) => item.classList.toggle("is-active", item.dataset.instrumentId === instrument.instrument_id));
+  elements.instrumentDetail.replaceChildren();
+  const header = document.createElement("header"); header.className = "detail-header";
+  const title = document.createElement("h3"); title.textContent = `${instrument.name || instrument.symbol}（${instrument.instrument_id}）`;
+  const meta = document.createElement("div"); meta.className = "run-item-meta";
+  meta.append(badge(instrument.state), document.createTextNode(`${instrument.market} · ${instrument.exchange} · ${instrument.currency} · ${instrument.asset_type}`));
+  const flags = document.createElement("div"); flags.className = "instrument-flags";
+  [["行业", instrument.industry], ["板块", instrument.sector], ["Qlib", instrument.qlib_code], ["每手", instrument.lot_size], ["交收日", instrument.settlement_days]].forEach(([label, value]) => { if (value !== null && value !== undefined) { const item = document.createElement("span"); item.className = "badge"; item.textContent = `${label}: ${value}`; flags.append(item); } });
+  if (instrument.metadata?.synthetic) { const warning = document.createElement("p"); warning.className = "boundary-note"; warning.textContent = "这是 Mock Provider 生成的合成数据，只用于验证数据管线与质量门控。"; header.append(title, meta, flags, warning); }
+  else header.append(title, meta, flags);
+  const tabs = document.createElement("div"); tabs.id = "market-data-tabs"; tabs.className = "data-tabs";
+  [["bars", "日线行情"], ["actions", "公司行为"], ["status", "交易状态"], ["financials", "财务事实"], ["calendar", "交易日历"]].forEach(([kind, label]) => { const button = document.createElement("button"); button.type = "button"; button.className = "secondary"; button.dataset.kind = kind; button.textContent = label; button.addEventListener("click", () => loadInstrumentDataset(kind)); tabs.append(button); });
+  const content = document.createElement("div"); content.id = "market-data-content";
+  elements.instrumentDetail.append(header, tabs, content);
+  loadInstrumentDataset("bars");
+}
+
+async function loadQualityIssues(runId) {
+  elements.qualityDetail.textContent = "正在读取质量问题…";
+  try {
+    const issues = await apiJson(`/market/ingestions/${encodeURIComponent(runId)}/issues?limit=100&offset=0`);
+    const section = detailSection(`质量问题（${issues.length}）`);
+    issues.forEach((issue) => section.list.append(recordCard(issue.issue_id, issue.message, `${issue.code} · ${issue.entity_type} · ${issue.entity_key}${issue.rejected ? " · 已拒绝入库" : ""}`, issue.severity)));
+    if (!issues.length) section.list.textContent = "该批次没有记录质量问题。";
+    elements.qualityDetail.replaceChildren(section.section);
+  } catch (error) { elements.qualityDetail.textContent = ""; elements.marketError.textContent = error.message; }
+}
+
+function makeIngestionCard(run) {
+  const card = document.createElement("article"); card.className = "ingestion-card";
+  const title = document.createElement("h4"); title.textContent = `${run.dataset} · ${run.market}`;
+  const meta = document.createElement("div"); meta.className = "run-item-meta"; meta.append(badge(run.status), document.createTextNode(`${run.provider} · ${run.version}`));
+  const counts = document.createElement("div"); counts.className = "count-row"; counts.textContent = `接收 ${run.received_count} · 接受 ${run.accepted_count} · 拒绝 ${run.rejected_count}`;
+  const button = document.createElement("button"); button.type = "button"; button.className = "text-button"; button.textContent = "查看质量问题"; button.addEventListener("click", () => loadQualityIssues(run.ingestion_run_id));
+  card.append(title, meta, counts, button); return card;
+}
+
+async function loadIngestions({reset = false} = {}) {
+  if (reset) { state.ingestionOffset = 0; elements.ingestionList.replaceChildren(); }
+  try {
+    const runs = await apiJson(`/market/ingestions?limit=${state.ingestionPageSize}&offset=${state.ingestionOffset}`);
+    runs.forEach((run) => elements.ingestionList.append(makeIngestionCard(run)));
+    state.ingestionOffset += runs.length;
+    elements.loadMoreIngestions.hidden = runs.length < state.ingestionPageSize;
+    if (!elements.ingestionList.children.length) elements.ingestionList.textContent = "暂无数据采集批次。";
+  } catch (error) { elements.marketError.textContent = error.message; }
 }
 
 async function invoke(event) {
@@ -652,6 +852,13 @@ elements.clearSignalFilters.addEventListener("click", () => {
   elements.researchRunFilter.value = "";
   loadSignals({reset: true});
 });
+elements.refreshInstruments.addEventListener("click", () => loadInstruments({reset: true}));
+elements.loadMoreInstruments.addEventListener("click", () => loadInstruments());
+elements.marketFilter.addEventListener("change", () => loadInstruments({reset: true}));
+elements.refreshIngestions.addEventListener("click", () => loadIngestions({reset: true}));
+elements.loadMoreIngestions.addEventListener("click", () => loadIngestions());
+elements.marketStart.addEventListener("change", () => { if (state.selectedInstrument) loadInstrumentDataset("bars"); });
+elements.marketEnd.addEventListener("change", () => { if (state.selectedInstrument) loadInstrumentDataset("bars"); });
 document.addEventListener("click", (event) => {
   const reference = event.target.closest("[data-reference]")?.dataset.reference;
   if (reference) focusReference(reference);
@@ -673,3 +880,6 @@ loadIdentity();
 loadRuntime();
 loadResearchRuns({reset: true});
 loadSignals({reset: true});
+initializeMarketDates();
+loadInstruments({reset: true});
+loadIngestions({reset: true});

@@ -184,6 +184,26 @@ button:disabled { cursor: wait; opacity: 0.65; }
 .signal-meter span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .boundary-note { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--primary); background: var(--surface-soft); color: var(--muted); font-size: 12px; line-height: 1.6; }
 .generate-signal { margin-top: 12px; }
+.market-toolbar { display: grid; grid-template-columns: .7fr repeat(3, 1fr); gap: 10px; margin-bottom: 8px; }
+.market-toolbar label { margin-top: 0; }
+.instrument-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.synthetic-badge { color: #9a5b00; background: light-dark(#fff3d6, #3d2c12); }
+.data-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0; }
+.data-tabs button { padding: 7px 10px; }
+.data-tabs button.is-active { border-color: var(--primary); color: var(--primary); }
+.data-table { overflow-x: auto; }
+.data-table td, .data-table th { white-space: nowrap; }
+.price-chart { width: 100%; height: 180px; margin: 10px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.price-chart polyline { fill: none; stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.ingestion-panel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.compact-heading { margin-bottom: 12px; }
+.ingestion-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.ingestion-card { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.ingestion-card h4 { margin: 0 0 7px; font-size: 13px; }
+.count-row { display: flex; gap: 10px; margin: 9px 0; color: var(--muted); font-size: 11px; }
+.quality-detail { margin-top: 14px; }
+.badge-warning { color: #b77900; }
+.badge-error { color: var(--danger); }
 
 .image-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .image-gallery figure { margin: 0; }
@@ -213,4 +233,5 @@ th { color: var(--muted); }
   .detail-stats { grid-template-columns: repeat(2, 1fr); }
   .filter-row { grid-template-columns: 1fr; }
   .filter-row .primary, .filter-row .secondary { width: 100%; }
+  .market-toolbar, .ingestion-grid { grid-template-columns: 1fr; }
 }

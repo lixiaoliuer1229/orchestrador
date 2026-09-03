@@ -170,6 +170,40 @@
         </section>
       </div>
     </section>
+
+    <section class="research-archive market-workbench" aria-labelledby="market-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">MARKET DATA</p>
+          <h2 id="market-title">市场数据与质量</h2>
+          <p class="field-help">浏览证券、时点数据及采集质量；合成数据不能用于评价真实策略收益。</p>
+        </div>
+        <button id="refresh-instruments" type="button" class="secondary">刷新证券</button>
+      </div>
+      <div class="market-toolbar">
+        <div><label for="market-filter">市场</label><select id="market-filter"><option value="">全部</option><option value="CN">A 股</option><option value="US">美股</option></select></div>
+        <div><label for="market-start">开始日期</label><input id="market-start" type="date"></div>
+        <div><label for="market-end">结束日期</label><input id="market-end" type="date"></div>
+        <div><label for="financial-as-of">财务数据时点</label><input id="financial-as-of" type="datetime-local"></div>
+      </div>
+      <p id="market-error" class="error" role="alert"></p>
+      <div class="archive-layout">
+        <aside class="run-list-panel" aria-label="证券列表">
+          <div id="instrument-list" class="run-list"></div>
+          <button id="load-more-instruments" type="button" class="secondary load-more" hidden>加载更多</button>
+        </aside>
+        <section id="instrument-detail" class="run-detail" aria-live="polite">
+          <div class="empty-state compact"><p>选择证券，查看行情、公司行为、状态和财务事实。</p></div>
+        </section>
+      </div>
+
+      <section class="ingestion-panel" aria-labelledby="ingestion-title">
+        <div class="section-heading compact-heading"><h3 id="ingestion-title">数据采集与质量</h3><button id="refresh-ingestions" type="button" class="secondary">刷新批次</button></div>
+        <div id="ingestion-list" class="ingestion-grid"></div>
+        <button id="load-more-ingestions" type="button" class="secondary load-more" hidden>加载更多批次</button>
+        <section id="quality-detail" class="quality-detail" aria-live="polite"></section>
+      </section>
+    </section>
   </main>
   <script src="/static/app.js" defer></script>
 </body>
