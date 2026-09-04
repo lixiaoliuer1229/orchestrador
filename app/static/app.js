@@ -727,8 +727,13 @@ function renderInstrumentDetail(instrument) {
   meta.append(badge(instrument.state), document.createTextNode(`${instrument.market} · ${instrument.exchange} · ${instrument.currency} · ${instrument.asset_type}`));
   const flags = document.createElement("div"); flags.className = "instrument-flags";
   [["行业", instrument.industry], ["板块", instrument.sector], ["Qlib", instrument.qlib_code], ["每手", instrument.lot_size], ["交收日", instrument.settlement_days]].forEach(([label, value]) => { if (value !== null && value !== undefined) { const item = document.createElement("span"); item.className = "badge"; item.textContent = `${label}: ${value}`; flags.append(item); } });
-  if (instrument.metadata?.synthetic) { const warning = document.createElement("p"); warning.className = "boundary-note"; warning.textContent = "这是 Mock Provider 生成的合成数据，只用于验证数据管线与质量门控。"; header.append(title, meta, flags, warning); }
-  else header.append(title, meta, flags);
+  const qlibNote = document.createElement("p");
+  qlibNote.className = "field-help";
+  qlibNote.textContent = instrument.qlib_code
+    ? `Qlib 标识 ${instrument.qlib_code} 已可用于 Point-in-Time 数据集导出；导出和二进制转换仍由服务端命令执行。`
+    : "该证券尚未配置 Qlib 标识，当前不会进入 Qlib 数据集导出。";
+  header.append(title, meta, flags, qlibNote);
+  if (instrument.metadata?.synthetic) { const warning = document.createElement("p"); warning.className = "boundary-note"; warning.textContent = "这是 Mock Provider 生成的合成数据，只用于验证数据管线与质量门控。"; header.append(warning); }
   const tabs = document.createElement("div"); tabs.id = "market-data-tabs"; tabs.className = "data-tabs";
   [["bars", "日线行情"], ["actions", "公司行为"], ["status", "交易状态"], ["financials", "财务事实"], ["calendar", "交易日历"]].forEach(([kind, label]) => { const button = document.createElement("button"); button.type = "button"; button.className = "secondary"; button.dataset.kind = kind; button.textContent = label; button.addEventListener("click", () => loadInstrumentDataset(kind)); tabs.append(button); });
   const content = document.createElement("div"); content.id = "market-data-content";

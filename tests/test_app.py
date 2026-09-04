@@ -46,6 +46,8 @@ def test_frontend() -> None:
     assert "不能直接触发下单" in response.text
     assert "市场数据与质量" in response.text
     assert "合成数据不能用于评价真实策略收益" in response.text
+    assert "Qlib 数据适配" in response.text
+    assert "Qlib Point-in-Time 数据导出由服务端命令执行" in response.text
 
 
 def test_runtime() -> None:
