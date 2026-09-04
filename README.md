@@ -59,7 +59,7 @@ AI Berkshire 中值得吸收的是研究纪律和工作流，包括财务数据�
 5. 先运行回测和模拟盘，保留人工审批并完成每日成交、持仓与资金对账。
 6. 经数月稳定模拟、故障恢复和极端行情测试后，再评估小资金自动执行。
 
-当前仓库已经完成安全数据访问、联网研究、证据审计和标准化候选信号四层基础能力。Qlib 数据适配、因子检验、组合、风控及交易链路尚未完成。
+当前仓库已经完成安全数据访问、联网研究、证据审计、标准化候选信号、市场数据导入，以及 point-in-time Qlib 数据适配。下一阶段是建立独立的 Qlib 运行环境，完成因子检验与回测；组合、风控和交易链路随后推进。
 
 ## API 入口
 
@@ -134,6 +134,7 @@ app/
 app/research/            # 研究领域模型、证据校验和 Repository
 app/signals/             # 证券、信号模型、校验和 Repository
 app/market/              # 市场数据模型、Provider、质量规则和 Repository
+app/qlib/                # Point-in-time CSV 导出和 Qlib binary 转换
 migrations/              # Alembic 数据库迁移
 
 tests/                   # API、Graph 与安全回归测试
@@ -263,6 +264,27 @@ python -m app.market.seed
 - `GET /market/financials/{instrument_id}`：按 `as_of` 时点查询当时已公告的财务事实。
 - `GET /market/ingestions`：查询数据导入批次。
 - `GET /market/ingestions/{run_id}/issues`：查询批次质量问题。
+
+### Qlib 数据适配
+
+Qlib 适配层会从 PostgreSQL 导出每只证券一个 CSV，基础字段为 `date/symbol/open/high/low/close/volume/money/factor`，并合并 `fund_*` 财务特征和 `signal_*` 研究信号。财务公告和 Signal 均按证券所在时区延迟到下一交易日生效；停牌日的行情、成交量和复权因子输出为空值。每次导出生成包含数据批次、字段及 SHA-256 的 `manifest.json`。
+
+```bash
+python -m app.qlib.export \
+  --output data/qlib/source \
+  --start 2025-01-01 \
+  --end 2025-12-31
+```
+
+将 CSV 转换成 Qlib 本地存储布局：
+
+```bash
+python -m app.qlib.bin \
+  --source data/qlib/source \
+  --output data/qlib/bin
+```
+
+输出包含 `calendars/day.txt`、`instruments/all.txt` 和 `features/<symbol>/*.day.bin`。二进制输出目录必须为空，防止历史文件混入新数据集。当前项目 Python 为 3.14，而 Qlib 0.9.7 官方支持范围截至 Python 3.12，因此 Qlib 运行和模型训练后续将使用独立的 Python 3.12 环境；主 API 环境不直接安装 `pyqlib`。
 
 ## 测试
 

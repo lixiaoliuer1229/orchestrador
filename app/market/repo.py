@@ -49,6 +49,7 @@ class MarketRepo(Protocol):
     def list_issues(
         self, run_id: str, limit: int, offset: int
     ) -> list[QualityIssue]: ...
+    def snapshot(self) -> list[dict]: ...
 
 
 class PostgresMarketRepo:
@@ -470,6 +471,19 @@ class PostgresMarketRepo:
                 (UUID(run_id), limit, offset),
             )
             return [self._issue_model(row) for row in cursor.fetchall()]
+
+    def snapshot(self) -> list[dict]:
+        with connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT ingestion_run_id, provider, dataset, version, completed_at,
+                          received_count, accepted_count, rejected_count
+                   FROM data_ingestion_runs WHERE status = 'completed'
+                   ORDER BY completed_at, ingestion_run_id"""
+            )
+            return [
+                {**row, "ingestion_run_id": str(row["ingestion_run_id"])}
+                for row in cursor.fetchall()
+            ]
 
     @staticmethod
     def _finish(
